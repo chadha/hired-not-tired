@@ -1,5 +1,8 @@
 import re
 from typing import Any, cast
+
+import anthropic
+from anthropic import AsyncAnthropic
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
@@ -1906,21 +1909,122 @@ async def workspace(
 @router.post("/coach/chat", response_model=CoachReply)
 async def coach_chat(
     payload: CoachInput,
+    request: Request,
     auth: AuthContext = Depends(get_current_auth),
     db: AsyncSession = Depends(get_db),
 ) -> CoachReply:
     require_candidate(auth, payload.candidate_id)
+    settings = settings_for(request)
+    if not settings.anthropic_configured:
+        raise ApiError(
+            503,
+            "claude_not_configured",
+            "The AI coach is not configured. Add ANTHROPIC_API_KEY to the backend environment.",
+        )
+
     candidate = await get_candidate(db, auth)
-    actions = action_items()
+    saved_jobs = (
+        (
+            await db.execute(
+                select(JobRecord)
+                .where(JobRecord.user_id == auth.user.id)
+                .order_by(JobRecord.created_at.desc())
+                .limit(5)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    profile_context = {
+        "career_goal": candidate.career_goal,
+        "target_roles": candidate.target_roles,
+        "locations": candidate.locations,
+        "minimum_salary": candidate.minimum_salary,
+        "currency": candidate.currency,
+        "remote_preference": candidate.remote_preference,
+        "skills": candidate.skills,
+        "experience_years": candidate.experience_years,
+        "summary": candidate.summary[:6000],
+        "profile_confirmed": bool(candidate.profile_confirmed_at),
+    }
+    job_context = [
+        {
+            "title": job.title,
+            "company": job.company,
+            "location": job.location,
+            "requirements": (job.requirements or [])[:20],
+            "description": (job.description or "")[:1800],
+            "source_url": job.source_url,
+        }
+        for job in saved_jobs
+    ]
+    user_prompt = (
+        "Candidate profile (user-provided platform data):\n"
+        f"{profile_context!r}\n\n"
+        "Recently saved jobs (may be empty):\n"
+        f"{job_context!r}\n\n"
+        f"Candidate's message:\n{payload.message}"
+    )
+    try:
+        async with AsyncAnthropic(
+            api_key=settings.anthropic_api_key,
+            timeout=30.0,
+            max_retries=1,
+        ) as client:
+            completion = await client.messages.create(
+                model=settings.anthropic_model,
+                max_tokens=900,
+                system=(
+                    "You are Hired Not Tired, a practical and candid AI career coach. "
+                    "Use the candidate profile and saved job evidence supplied in the prompt. "
+                    "Never invent experience, skills, employers, recruiter identities, job facts, "
+                    "or outcomes. Clearly label gaps and uncertainty. Give specific next steps. "
+                    "Reply in the language used by the candidate. Never claim to have applied for "
+                    "a job, contacted a recruiter, or sent a message. All external actions require "
+                    "the candidate's explicit review and approval."
+                ),
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+        answer = "\n".join(
+            block.text for block in completion.content if block.type == "text"
+        ).strip()
+        if not answer:
+            raise ApiError(502, "empty_ai_response", "Claude returned an empty response. Please retry.")
+    except anthropic.APIError as error:
+        # Do not expose provider response bodies or credentials to the browser.
+        status_code = getattr(error, "status_code", None)
+        if status_code == 401:
+            raise ApiError(
+                502, "claude_authentication_failed",
+                "Claude rejected the configured API key. Check the Railway secret.",
+            ) from None
+        if status_code == 429:
+            raise ApiError(
+                503, "claude_rate_limited",
+                "The AI coach is temporarily rate-limited. Please try again shortly.",
+            ) from None
+        raise ApiError(
+            502, "claude_provider_error",
+            "The AI coach could not complete this response. Please try again.",
+        ) from None
+    except ApiError:
+        raise
+    except Exception:
+        raise ApiError(
+            502, "claude_connection_error",
+            "The AI coach could not reach Claude. Please try again.",
+        ) from None
+
     return CoachReply(
-        message="Your confirmed profile and saved jobs are available. Choose one job to prepare or review; no application or message is sent automatically.",
+        message=answer,
         insights=[
-            f"Confirmed skills available for evidence mapping: {', '.join(candidate.skills[:3])}."
+            f"Profile evidence available: {', '.join(candidate.skills[:5])}."
             if candidate.skills
-            else "Add and confirm profile facts before relying on an application draft."
+            else "No confirmed skills are available yet. Add profile evidence for more precise coaching."
         ],
-        recommended_actions=actions,
+        recommended_actions=action_items(),
         workflow_id=new_id(),
+        coach_mode="claude",
     )
 
 
