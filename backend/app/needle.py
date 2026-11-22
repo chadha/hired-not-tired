@@ -52,13 +52,11 @@ class NeedleClient:
         path = f"/linkedin/profiles/{quote(identity, safe='')}?connectedAccountId={quote(self.connected_account_id or '', safe='')}"
         return await self._request("GET", path)
 
-    async def search_jobs(self, *, keywords: str, location: str | None, limit: int) -> dict[str, Any]:
+    async def search_jobs(self, *, keywords: str, limit: int) -> dict[str, Any]:
         body: dict[str, Any] = {
             "connectedAccountId": self.connected_account_id,
             "keywords": keywords,
             "limit": min(limit, 50),
-            "sortBy": "recent",
+            "sortBy": "date",
         }
-        if location:
-            body["location"] = location
         return await self._request("POST", "/linkedin/jobs/search", json=body)
