@@ -597,9 +597,15 @@ async def discover_jobs(
     terms = list(dict.fromkeys([*candidate.target_roles, candidate.career_goal]))
     keywords = " ".join(value.strip() for value in terms if value and value.strip())[:500]
     if not keywords:
-        raise ApiError(422, "job_preferences_required", "Add at least one target role or career goal before searching LinkedIn.")
+        raise ApiError(
+            422,
+            "job_preferences_required",
+            "Add at least one target role or career goal before searching LinkedIn.",
+        )
     try:
-        workplace = {"remote": ["remote"], "hybrid": ["hybrid"], "onsite": ["on_site"]}.get(candidate.remote_preference)
+        workplace = {"remote": ["remote"], "hybrid": ["hybrid"], "onsite": ["on_site"]}.get(
+            candidate.remote_preference
+        )
         response = await needle_for(request).search_jobs(
             keywords=(" ".join([keywords, *candidate.locations[:2]])).strip()[:500],
             limit=payload.limit,
@@ -613,16 +619,20 @@ async def discover_jobs(
     if not isinstance(external_jobs, list):
         raise ApiError(502, "invalid_needle_response", "Needle returned an invalid jobs response.")
     saved: list[Job] = []
-    for item in external_jobs[:payload.limit]:
+    for item in external_jobs[: payload.limit]:
         if not isinstance(item, dict):
             continue
         job_id = str(item.get("jobId") or item.get("id") or "").strip()
-        source_url = str(item.get("jobUrl") or item.get("url") or item.get("linkedinUrl") or "").strip()
+        source_url = str(
+            item.get("jobUrl") or item.get("url") or item.get("linkedinUrl") or ""
+        ).strip()
         if not source_url and job_id:
             source_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
         title = str(item.get("title") or "").strip()
         company_value = item.get("companyName") or item.get("company") or ""
-        company = str(company_value.get("name") if isinstance(company_value, dict) else company_value).strip()
+        company = str(
+            company_value.get("name") if isinstance(company_value, dict) else company_value
+        ).strip()
         if not source_url or not title or not company:
             continue
         description = str(item.get("description") or "")
@@ -630,8 +640,14 @@ async def discover_jobs(
         requirements = item.get("skills") or item.get("requirements") or []
         if not isinstance(requirements, list):
             requirements = []
-        requirements = [str(value.get("name") if isinstance(value, dict) else value) for value in requirements]
-        existing = await db.scalar(select(JobRecord).where(JobRecord.user_id == auth.user.id, JobRecord.source_url == source_url))
+        requirements = [
+            str(value.get("name") if isinstance(value, dict) else value) for value in requirements
+        ]
+        existing = await db.scalar(
+            select(JobRecord).where(
+                JobRecord.user_id == auth.user.id, JobRecord.source_url == source_url
+            )
+        )
         at = utcnow()
         if existing:
             existing.title, existing.company, existing.location = title, company, location
@@ -640,9 +656,16 @@ async def discover_jobs(
             record = existing
         else:
             record = JobRecord(
-                id=uuid4(), user_id=auth.user.id, title=title, company=company,
-                location=location, description=description, requirements=requirements,
-                source="linkedin_needle", source_url=source_url, retrieved_at=at,
+                id=uuid4(),
+                user_id=auth.user.id,
+                title=title,
+                company=company,
+                location=location,
+                description=description,
+                requirements=requirements,
+                source="linkedin_needle",
+                source_url=source_url,
+                retrieved_at=at,
             )
             db.add(record)
         await db.flush()
