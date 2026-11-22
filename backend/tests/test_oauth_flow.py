@@ -1,6 +1,7 @@
 from datetime import timedelta
 from urllib.parse import parse_qs, urlparse
 
+from fastapi import Response
 from sqlalchemy import func, select
 
 from app.database import utcnow
@@ -13,8 +14,21 @@ from app.models import (
     User,
 )
 from app.schemas import LinkedInIdentityClaims
-from tests.conftest import bootstrap, complete_login, start_authorize
+from app.security import set_oauth_cookie
+from tests.conftest import bootstrap, complete_login, make_test_settings, start_authorize
 
+
+def test_secure_oauth_cookie_uses_secure_prefix_with_narrow_path() -> None:
+    settings = make_test_settings().model_copy(update={"cookie_secure": True})
+    assert settings.oauth_cookie_name == "__Secure-hnt_oauth"
+
+    response = Response()
+    set_oauth_cookie(response, "opaque-attempt", settings)
+    cookie = response.headers["set-cookie"]
+    assert "__Secure-hnt_oauth=opaque-attempt" in cookie
+    assert "Path=/api/v1/auth/linkedin" in cookie
+    assert "Secure" in cookie
+    assert "Domain=" not in cookie
 
 async def test_first_login_provisions_identity_profile_and_required_notices(client_app) -> None:
     client, app = client_app

@@ -214,7 +214,7 @@ class Settings(BaseSettings):
 
     @property
     def oauth_cookie_name(self) -> str:
-        return "__Host-hnt_oauth" if self.cookie_secure else "hnt_oauth"
+        return "__Secure-hnt_oauth" if self.cookie_secure else "hnt_oauth"
 
     @property
     def notice_versions(self) -> dict[str, str]:
