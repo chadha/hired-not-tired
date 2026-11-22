@@ -586,8 +586,7 @@ async def discover_jobs(
         raise ApiError(422, "job_preferences_required", "Add at least one target role or career goal before searching LinkedIn.")
     try:
         response = await needle_for(request).search_jobs(
-            keywords=keywords,
-            location=candidate.locations[0] if candidate.locations else None,
+            keywords=(" ".join([keywords, *candidate.locations[:2]])).strip()[:500],
             limit=payload.limit,
         )
     except NeedleError as error:
