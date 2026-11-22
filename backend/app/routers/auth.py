@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from typing import cast
 from urllib.parse import urlencode
@@ -28,6 +29,7 @@ from app.services import provision_user, workspace_for
 from app.supabase_auth import SupabaseLinkedInOIDC
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 def settings_for(request: Request) -> Settings:
@@ -161,19 +163,30 @@ async def linkedin_callback(
     if not code:
         return callback_failure("oauth_failed", settings)
 
-    provider = provider_for(request)
     cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
     if cookie is None:
+        logger.warning("LinkedIn callback rejected request_id=%s stage=oauth_cookie_missing", request.state.request_id)
         return callback_failure("invalid_state", settings)
     _, nonce = cookie
-    try:
-        if settings.supabase_mode:
+
+    if settings.supabase_mode:
+        try:
             claims = await supabase_for(request).exchange_code(code, nonce)
-        else:
+        except OIDCError:
+            logger.warning("LinkedIn callback rejected request_id=%s stage=supabase_code_exchange", request.state.request_id)
+            return callback_failure("oauth_validation_failed", settings)
+    else:
+        provider = provider_for(request)
+        try:
             id_token = await provider.exchange_code(code)
+        except OIDCError:
+            logger.warning("LinkedIn callback rejected request_id=%s stage=token_exchange", request.state.request_id)
+            return callback_failure("oauth_validation_failed", settings)
+        try:
             claims = await provider.validate_id_token(id_token, nonce)
-    except OIDCError:
-        return callback_failure("oauth_validation_failed", settings)
+        except OIDCError:
+            logger.warning("LinkedIn callback rejected request_id=%s stage=id_token_validation", request.state.request_id)
+            return callback_failure("oauth_validation_failed", settings)
 
     user, first_login = await provision_user(db, claims, settings)
     if user.status != "active":
@@ -192,6 +205,7 @@ async def linkedin_callback(
     )
     db.add(auth_session)
     await db.flush()
+    logger.info("LinkedIn callback created application session request_id=%s", request.state.request_id)
     query = urlencode({"auth": "linkedin", "first_login": "1" if first_login else "0"})
     response = RedirectResponse(f"{settings.frontend_url}/coach?{query}", status_code=303)
     set_session_cookie(response, token, settings)
