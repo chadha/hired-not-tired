@@ -8,6 +8,10 @@ from app.oidc import ISSUER, LinkedInOIDC, OIDCError
 from tests.conftest import make_test_settings
 
 
+def test_issuer_matches_linkedin_oidc_discovery_issuer() -> None:
+    assert ISSUER == "https://www.linkedin.com/oauth"
+
+
 def signing_material() -> tuple[object, dict[str, object]]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     jwk = jwt.algorithms.RSAAlgorithm.to_jwk(private_key.public_key(), as_dict=True)
