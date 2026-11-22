@@ -1914,7 +1914,8 @@ async def coach_chat(
 ) -> CoachReply:
     require_candidate(auth, payload.candidate_id)
     settings = settings_for(request)
-    if not settings.anthropic_configured:
+    api_key = settings.anthropic_api_key
+    if not api_key:
         raise ApiError(
             503,
             "claude_not_configured",
@@ -1966,7 +1967,7 @@ async def coach_chat(
     )
     try:
         async with AsyncAnthropic(
-            api_key=settings.anthropic_api_key,
+            api_key=api_key,
             timeout=30.0,
             max_retries=1,
         ) as client:
