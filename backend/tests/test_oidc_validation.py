@@ -57,7 +57,6 @@ async def test_id_token_rejects_invalid_signature_audience_issuer_and_expiry() -
         return [jwk]
 
     provider._fetch_jwks = local_jwks  # type: ignore[method-assign]
-    token = signed_token(private_key)
     other_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     with pytest.raises(OIDCError):
         await provider.validate_id_token(signed_token(other_private_key))
