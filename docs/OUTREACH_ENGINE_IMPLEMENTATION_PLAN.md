@@ -172,3 +172,79 @@ Required UI:
 ## 8. Definition of implementation complete
 
 The MVP vertical slice is complete when contact capture with evidence, contact relevance, AI/deterministic drafting, exact-text approval, LinkedIn user handoff, manual reply/outcome capture and a truthful timeline work end to end against the existing FastAPI app and Lovable chat-first UI. Real email delivery is a separate secured pilot milestone, not a fake demo button.
+
+
+## 9. First delivery: one complete LinkedIn vertical slice (implementation priority)
+
+**This is the immediate build target.** Do not start email sending, broad contact discovery, provider integrations or campaign features until this slice works end to end.
+
+### Exact candidate journey
+
+1. **Select a saved job** from the existing job/opportunity cards.
+2. **Add a contact** from a user-provided name, current title/company, public LinkedIn profile URL and optional evidence/source URL. Do not invent contact identities or scrape LinkedIn.
+3. **Review the contact** inside the chat. Show source/evidence, confidence and uncertainty. Label as “Potential hiring contact”, not confirmed hiring manager.
+4. **Generate a LinkedIn message** using only the selected job, candidate-confirmed profile and contact evidence. Show a short rationale and factuality warnings.
+5. **Edit and approve** the exact message. Approval records actor, timestamp and a canonical hash of destination + message text. Any subsequent edit invalidates approval.
+6. **LinkedIn handoff** opens the contact's public LinkedIn profile and makes the approved text easy to copy. The UI must say “Open LinkedIn to send” or “Open profile and copy message”, never “Message sent”.
+7. **Record response** by allowing the candidate to record whether they sent the message and later add a reply (received date, channel, reply text/summary, sentiment/outcome optional). Label the send as candidate-confirmed/self-reported, and the reply as candidate-recorded. Do not imply LinkedIn webhook/API verification.
+
+### P0 scope lock
+
+- LinkedIn only for this first vertical slice.
+- Email remains a future channel and is not implemented in this milestone.
+- Contact entry is manual/candidate-supplied. A later discovery adapter can be added after the vertical slice.
+- No Needle, LinkedIn API, scraping, browser automation, automated sending, email provider, paid integration or external account connection.
+- No new microservice, workflow engine, or infrastructure spend.
+- Reuse existing candidate, job, profile and interaction models wherever possible.
+- Existing in-memory store is acceptable only for local/demo validation. Clearly label data as demo/ephemeral and do not represent it as durable or multi-user safe.
+
+### Minimal API contract for this slice
+
+Align route names with existing app conventions and configured API prefix. Proposed operations:
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | /candidates/{candidate_id}/jobs | Load saved jobs (reuse existing route if available) |
+| POST | /candidates/{candidate_id}/jobs/{job_id}/contacts | Add candidate-supplied contact |
+| GET | /candidates/{candidate_id}/jobs/{job_id}/contacts | List contacts and evidence |
+| POST | /candidates/{candidate_id}/outreach/drafts | Generate/create LinkedIn draft |
+| PATCH | /candidates/{candidate_id}/outreach/drafts/{draft_id} | Edit draft; clear prior approval |
+| POST | /candidates/{candidate_id}/outreach/drafts/{draft_id}/approve | Approve exact destination + text hash |
+| POST | /candidates/{candidate_id}/outreach/drafts/{draft_id}/handoff | Record handoff intent and return LinkedIn URL/text |
+| POST | /candidates/{candidate_id}/outreach/drafts/{draft_id}/confirm-sent | Candidate attests message was sent |
+| POST | /candidates/{candidate_id}/outreach/drafts/{draft_id}/replies | Record a reply manually |
+| GET | /candidates/{candidate_id}/outreach/timeline | Show outreach and reply events |
+
+If equivalent endpoints already exist, extend/reuse them rather than create duplicates. Keep Pydantic request/response schemas and service logic separate from route handlers.
+
+### Required state transitions
+
+- Draft: draft
+- Approval: approved only while stored hash matches current destination and text
+- Handoff: handed_off (does not mean sent)
+- Candidate attestation: candidate_confirmed_sent
+- Reply: a separate reply_recorded event; do not overwrite send status
+
+Any message or recipient edit resets the draft to draft and clears approval fields. Duplicate handoff/confirm/reply requests must not create duplicate timeline events where an idempotency key is supplied.
+
+### Vertical-slice acceptance checklist
+
+- [ ] Candidate can select an existing saved job in the current chat-first experience.
+- [ ] Candidate can add a contact without leaving the conversation.
+- [ ] Required contact fields validate; optional unknown facts remain blank.
+- [ ] Contact card shows LinkedIn URL, source, evidence and uncertainty.
+- [ ] Candidate can generate and edit a job-specific message.
+- [ ] Message factuality warnings identify missing/unsupported claims.
+- [ ] Approval binds to exact destination and exact message content.
+- [ ] Editing after approval invalidates approval.
+- [ ] Handoff is unavailable before approval.
+- [ ] Handoff opens only the supplied public LinkedIn profile URL and presents the approved message for user-controlled copy/send.
+- [ ] UI never claims an external send occurred because a profile was opened.
+- [ ] Candidate can explicitly confirm they sent it.
+- [ ] Candidate can record a reply and see it in the job timeline.
+- [ ] Send and reply labels clearly distinguish candidate-reported events from provider-verified events.
+- [ ] No Needle dependency, LinkedIn scraping, browser automation, real external message sending or email sending is introduced.
+- [ ] Backend unit/API tests and frontend flow tests cover the complete journey.
+
+**Definition of done for this milestone:** the seven-step journey (select job → add contact → generate message → approve → LinkedIn handoff → confirm sent → record response) works end to end in the existing Hired Not Tired application, with truthful state labels and no unauthorized automation.
+
