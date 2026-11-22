@@ -16,6 +16,7 @@ export function CareerSourcePanel({
   onFindJobs: () => Promise<void>;
 }) {
   const [linkedinUrl, setLinkedinUrl] = useState(candidate.linkedin_url ?? "");
+  const [linkedinConsent, setLinkedinConsent] = useState(false);
   const [busy, setBusy] = useState<"linkedin" | "cv" | "jobs" | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -35,8 +36,9 @@ export function CareerSourcePanel({
         <label className="text-sm font-medium" htmlFor="career-linkedin-url">LinkedIn profile URL</label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input id="career-linkedin-url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://www.linkedin.com/in/your-profile/" />
-          <Button disabled={busy !== null || !linkedinUrl.trim()} onClick={() => void run("linkedin", () => onImportLinkedIn(linkedinUrl.trim()))}>{busy === "linkedin" ? "Importing…" : "Import LinkedIn"}</Button>
+          <Button disabled={busy !== null || !linkedinUrl.trim() || !linkedinConsent} onClick={() => void run("linkedin", () => onImportLinkedIn(linkedinUrl.trim()))}>{busy === "linkedin" ? "Importing…" : "Import LinkedIn"}</Button>
         </div>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={linkedinConsent} onChange={(e) => setLinkedinConsent(e.target.checked)} className="mt-0.5" />I authorize Hired Not Tired to retrieve my LinkedIn public profile information through its connected Needle account for my career profile.</label>
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium" htmlFor="career-cv-file">Upload your CV</label>
