@@ -1,67 +1,55 @@
-# Lovable UI Handoff
 
-## Product experience
 
-Build a polished, responsive, **chat-first** web app for Hired Not Tired. The coach is the product's front door, not a separate chatbot hidden in a dashboard.
+## Critical product requirement: in-app hiring-contact discovery and outreach
 
-Tagline: **Your AI career agent. Your next opportunity. Your career, moving forward.**
+This is a core differentiator, not an optional convenience. The candidate must not have to manually research who owns a vacancy, copy a message, switch apps, and send it themselves.
 
-Visual direction: confident, warm, premium productivity product. Avoid generic recruiting-site layouts. Main surface is a continuous conversation with contextual cards and compact progress panels.
+### Required experience inside each opportunity
 
-## Required screens/states
+1. **Find the hiring contact:** offer an explicit "Find hiring manager" action for each job. Search permitted public company/team sources and authorized contact data. Candidate-submitted contact leads are also supported.
+2. **Rank and verify:** show the best candidate contact(s), their name, current role, company, public professional profile URL where lawfully available, source/evidence, confidence, and the reason they are relevant to this particular vacancy.
+3. **Be honest about uncertainty:** states are Not searched, Searching, Found, Needs review, and No reliable match. Never invent a person, email, relationship, or claim that a person owns a vacancy without evidence. A company executive is not automatically the hiring manager.
+4. **Compose in context:** create a personalized message using the confirmed candidate profile, selected job, and evidence-backed contact context. Keep the draft, edits, approval, and history inside the app.
+5. **Send from the app when authorized:** expose "Send from Hired Not Tired" only if a real, approved provider integration supports that exact message type and recipient. Require candidate review and explicit approval. Record provider response/message ID and delivery state where available.
+6. **Track the relationship:** store draft, approval, sent, delivery, reply, follow-up due, and outcome events in the candidate's job timeline. Never mark a message sent based on opening a profile or clicking a deep link.
 
-1. Welcome / onboarding conversation.
-2. CV upload and LinkedIn profile URL + user-provided profile data input.
-3. Career profile confirmation (target role, location, salary floor, skills).
-4. Chat home with coach greeting, daily plan and progress.
-5. Opportunity cards (match score, reasons, gaps, salary, source and demo label).
-6. Outreach draft preview with explicit user review and copy/open actions.
-7. Interaction capture form for recruiter reply, interview, rejection, offer or note.
-8. Coach response with empathetic context, evidence-based insight and action-plan cards.
+### LinkedIn-specific integration constraint
 
-## API connection
+Do not assume that standard LinkedIn sign-in or the ordinary self-serve API grants permission to send member-to-member messages. LinkedIn API access is permission- and program-scoped, and LinkedIn prohibits unauthorized bots, scraping, and automated message activity. A LinkedIn Pages messaging integration available through an approved partner is not equivalent to permission to send messages from an individual's personal LinkedIn account.
 
-Set `VITE_API_BASE_URL` to the deployed FastAPI origin, e.g. `https://YOUR-API-HOST`. Use `/api/v1`.
+Therefore:
+- Build a provider adapter interface, but keep LinkedIn personal-account sending disabled until Hired Not Tired has written approval and a supported API/partner capability for this use case.
+- Never request LinkedIn passwords, session cookies, or browser tokens.
+- Never use browser automation, scraping behind login, unofficial APIs, or user-session replay.
+- Do not call an external profile link "Send". Opening a profile is not sending a message.
+- If sending is unavailable, keep contact discovery, verification, message composition, approval, and timeline tracking in Hired Not Tired. Clearly show the actual blocker; do not silently fall back to copy/paste as if the requirement were met.
+- Support other authorized channels (for example, email) only when a legitimate provider integration and recipient address are available and the candidate explicitly approves sending.
 
-Use these endpoints:
-- `POST /demo/seed` to load the safe simulated judge scenario.
-- `POST /coach/chat` body: `{ candidate_id, message, include_memory: true, include_recent_interactions: true }`.
-- `GET /coach/action-plan/{candidate_id}`.
-- `POST /candidates/onboard`.
-- `POST /candidates/{candidate_id}/documents/cv`.
-- `POST /candidates/{candidate_id}/profile/linkedin`.
-- `GET /candidates/{candidate_id}/profile`.
-- `POST /jobs/discover`.
-- `GET /jobs`.
-- `POST /jobs/{job_id}/match/{candidate_id}`.
-- `POST /outreach/draft`.
-- `POST /interactions`.
-- `GET /career/memory/{candidate_id}`.
+### Demo requirements
 
-Swagger/OpenAPI is exposed at `/docs` and `/openapi.json`.
+- Fictional contacts must be visibly labeled DEMO.
+- Demo send/reply events must be labeled DEMO ONLY and must never be confused with a real external message.
+- Do not seed a fake real-world hiring manager or fabricate a LinkedIn profile URL.
 
-## Suggested interaction flow
+### Required UI states and tests
 
-- On first launch, explain that the candidate remains in control of external actions.
-- Offer "Try the live demo" which calls `POST /demo/seed`.
-- Display the returned candidate and jobs.
-- When a user selects a job, call matching endpoint and show the score with supporting evidence.
-- For outreach, call draft endpoint. Never imply it was sent. Include copy and open LinkedIn/profile link controls.
-- Simulate recruiter feedback only in an explicitly labeled demo scenario, or let the real candidate enter pasted feedback.
-- On the coach turn, pass the user's message to `/coach/chat` and render response insights/actions.
-- Persist the candidate ID in the app's own backend/session mechanism; don't put sensitive CV content in localStorage.
+- Contact discovery status: not searched / searching / found / needs review / no reliable match.
+- Evidence and confidence visible for every proposed contact.
+- Contact source and last-checked timestamp visible.
+- Provider connection and permission status visible.
+- Message states: draft / awaiting approval / approved / sending / sent / failed / reply received.
+- Sending disabled if provider permission is absent, recipient is unverified, or candidate approval is missing.
+- Tests cover no fabricated contact, provenance/confidence display, explicit approval, send blocked without provider permission, truthful failure states, and demo labeling.
 
-## Lovable implementation prompt
+### API contract direction
 
-Build the Hired Not Tired frontend as a mobile-responsive chat-first career companion. Connect to the existing FastAPI API using `VITE_API_BASE_URL`. Start by calling `POST /api/v1/demo/seed` to render a complete demo experience. The main page should feel like a conversation with a thoughtful AI career coach. Use contextual cards inside the conversation for candidate profile, matched jobs, outreach drafts, recruiter interactions and recommended action plans. Implement loading, empty, error and retry states. Never claim an outreach message or job application has been sent automatically. Mark demo candidate, jobs and recruiter feedback as simulated. Use real API calls, not hardcoded frontend-only responses. Keep all external actions candidate-approved. Add a settings/privacy area explaining what profile information is stored and how the user can request deletion.
+Add typed resources/endpoints for:
+- job-specific contact discovery and results;
+- contact evidence/provenance and confidence;
+- candidate selection/confirmation of a contact;
+- outreach draft and candidate approval;
+- provider connection/capability status;
+- send request and provider result;
+- message/reply/follow-up timeline events.
 
-## UI acceptance criteria
-
-- A new visitor can understand the value proposition in under 10 seconds.
-- A demo can be completed in under 4 minutes.
-- Coach chat is the primary interaction and remains continuous.
-- Job match reasons and gaps are visible, not only a percentage.
-- Outreach is clearly labeled "Draft - not sent".
-- Simulated data is visibly labeled.
-- Mobile layout works at 375px wide.
-- All API failures show useful retry guidance.
+Do not represent these as production-ready until the backend persistence, authorization, provider access, and end-to-end tests exist.
