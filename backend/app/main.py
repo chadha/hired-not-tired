@@ -9,8 +9,8 @@ from app.billing import PayPalClient
 from app.config import Settings
 from app.database import make_engine, make_session_factory
 from app.errors import error_response, install_exception_handlers
-from app.oidc import LinkedInOIDC
 from app.needle import NeedleClient
+from app.oidc import LinkedInOIDC
 from app.providers import BraveSearchProvider, JobPageImporter
 from app.routers import account, auth, billing, career, health
 from app.supabase_auth import SupabaseLinkedInOIDC
