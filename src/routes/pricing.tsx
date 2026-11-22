@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { Logo, SimBadge } from "@/components/hnt/brand";
 import { BillingSummary, PayPalSubscriptionButton, PricingPlans } from "@/components/hnt/billing";
+import { PricingComparison, PricingFaq } from "@/components/hnt/pricing-details";
 import { api, ApiError, isLiveApi } from "@/lib/api";
 import {
   BILLING_PLANS,
@@ -18,13 +19,13 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Starter €4.99, Pro €9.99 and Premium €19.99 monthly in EUR. PayPal Sandbox subscriptions require backend verification.",
+          "Compare Starter €4.99, recommended Pro €9.99 and Premium €19.99 monthly. Truthful CV tailoring and candidate-controlled applications. Sandbox only.",
       },
       { property: "og:title", content: "Monthly plans — Hired Not Tired" },
       {
         property: "og:description",
         content:
-          "Choose a configurable EUR monthly plan. Pro is recommended; PayPal Sandbox checkout never grants browser-only access.",
+          "You are more than your CV. Compare monthly career plans, cancellation and privacy. Pro is recommended. PayPal Sandbox only; no real charges.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -52,12 +53,16 @@ function PricingPage() {
     const bootstrap = async () => {
       try {
         await api.linkedinAuthSession();
+        if (!active) return;
+        setSignedIn(true);
         const [planResponse, billingStatus] = await Promise.all([
           api.billingPlans(),
           api.billingStatus(),
         ]);
         if (!active) return;
-        setSignedIn(true);
+        if (planResponse.environment !== "sandbox" || billingStatus.environment !== "sandbox") {
+          throw new Error("Only PayPal Sandbox billing is available. No checkout was enabled.");
+        }
         setPlans(planResponse.plans);
         setStatus(billingStatus);
       } catch (reason) {
@@ -83,10 +88,24 @@ function PricingPage() {
       void navigate({ to: "/" });
       return;
     }
+    if (
+      checking ||
+      busyPlan ||
+      status?.entitlement_active ||
+      !plan.configured ||
+      !PUBLIC_PAYPAL_CLIENT_ID
+    )
+      return;
     setBusyPlan(plan.key);
     setIntent(null);
     try {
-      setIntent(await api.createBillingCheckout(plan.key));
+      const checkout = await api.createBillingCheckout(plan.key);
+      if (checkout.environment !== "sandbox" || checkout.plan_key !== plan.key) {
+        throw new Error(
+          "The checkout does not match the selected Sandbox plan. No payment was started.",
+        );
+      }
+      setIntent(checkout);
     } catch (reason) {
       setError((reason as Error).message);
     } finally {
@@ -144,15 +163,13 @@ function PricingPage() {
             <SimBadge label="PAYPAL SANDBOX ONLY" />
           </div>
           <h1 className="mt-5 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            Choose your monthly plan
+            You are more than your CV.
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-            Germany-first launch · EUR billing every month. No live payments or real charges are
-            enabled.
+            Choose your next step with confidence. Pro is our recommended monthly plan.
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
-            Prices are Starter €4.99, Pro €9.99 and Premium €19.99. Existing product capabilities
-            are shown without invented limits.
+            Germany-first · billed monthly in EUR · cancel renewal from your account.
           </p>
         </div>
 
@@ -176,7 +193,7 @@ function PricingPage() {
         {error && (
           <p
             role="alert"
-            className="mx-auto mt-6 max-w-3xl rounded-xl bg-destructive/5 p-4 text-sm text-destructive"
+            className="mx-auto mt-6 max-w-3xl rounded-xl bg-destructive/5 p-4 text-sm break-words text-destructive"
           >
             {error}
           </p>
@@ -189,7 +206,21 @@ function PricingPage() {
             signedIn={signedIn}
             busyPlan={busyPlan}
             onSelect={(plan) => void selectPlan(plan)}
+            checking={checking}
+            allowSignIn={isLiveApi}
+            currentPlan={status?.entitlement_active ? status.entitlement_plan : null}
           />
+        </div>
+
+        <div className="mt-6 space-y-2 text-center text-xs leading-relaxed text-muted-foreground">
+          <p>Sandbox testing only. No real payments or taxes are charged.</p>
+          <p>
+            Live VAT treatment is not configured. These are test prices, not a final live tax quote.
+          </p>
+          <p>
+            All plans currently include the same tools. No plan-specific limits or unlimited-use
+            claims.
+          </p>
         </div>
 
         {intent && PUBLIC_PAYPAL_CLIENT_ID && (
@@ -207,6 +238,14 @@ function PricingPage() {
             <BillingSummary status={status} busy={cancelBusy} onCancel={cancel} />
           </div>
         )}
+        {status?.entitlement_active && (
+          <p className="mt-4 text-sm text-muted-foreground">
+            To change plans, cancel renewal and wait until the confirmed access period ends.
+            In-place upgrades, downgrades and prorating are not available yet.
+          </p>
+        )}
+        <PricingComparison plans={plans} />
+        <PricingFaq />
       </main>
     </div>
   );

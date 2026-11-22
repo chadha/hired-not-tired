@@ -116,12 +116,15 @@ function Index() {
     const authError = params.get("auth_error");
     const messages: Record<string, string> = {
       access_denied: "LinkedIn authorization was cancelled. No account or session was created.",
+      invalid_state: "Your LinkedIn sign-in attempt is no longer valid. Please start again.",
       oauth_validation_failed: "LinkedIn sign-in could not be validated. No session was created.",
       account_closed:
         "This account is closed. Contact the operator before attempting to restore access.",
       oauth_failed: "LinkedIn sign-in could not be completed. Please try again.",
     };
-    if (authError === "invalid_state") {
+    if (authError === "authentication_required") {
+      setNotice("Sign in with LinkedIn to open your coach.");
+    } else if (authError === "invalid_state") {
       params.delete("auth_error");
       const search = params.toString();
       window.history.replaceState(
@@ -148,9 +151,12 @@ function Index() {
         nav({ to: "/coach" });
       })
       .catch((error: ApiError) => {
-        if (error.status !== 401 && active && (!authError || authError === "invalid_state")) {
-          setErr(error.message);
+        if (!active) return;
+        if (error.status === 401) {
+          if (authError === "invalid_state") setErr(messages["invalid_state"] ?? null);
+          return;
         }
+        if (!authError || authError === "invalid_state") setErr(error.message);
       });
     return () => {
       active = false;

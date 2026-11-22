@@ -1,5 +1,13 @@
 # Roadmap
 
+## Pricing page finalization
+
+- [x] Refine benefit-led plan cards, highlight Pro and show the same implemented tools honestly across tiers
+- [x] Add mobile-friendly comparison, cancellation/billing/plan-change/privacy/limits FAQs and explicit unconfigured live tax notice
+- [x] Keep Sandbox-only checkout, authenticated plan selection and server-owned entitlement verification; no duplicate checkout while confirmed access remains
+- [x] Verify all three plan flows, cancellation and safety: 109 frontend tests; 18 backend billing/session tests; automatic typecheck/build and desktop/mobile browser inspection
+- [ ] External: real PayPal Sandbox approvals require configured test credentials and a signed-in test buyer; do not enable live payments
+
 ## PayPal Sandbox monthly subscriptions
 
 - [x] Add EUR 4.99 Starter, EUR 9.99 Pro (recommended), and EUR 19.99 Premium monthly pricing without inventing feature limits
@@ -46,6 +54,15 @@
 - [x] Add live-mode frontend and mocked-provider backend regression tests
 - [x] Run backend/frontend tests, typecheck, lint and build verification; document observed results and external blockers
 - [ ] External operator actions: choose/register the exact backend callback hostname, supply official LinkedIn credentials, configure persistent PostgreSQL/HTTPS, deploy and perform a real-provider browser login
+
+## LinkedIn production callback cookie fix
+
+- [x] Verify the public API URL, deployed health/capabilities, frontend callback target, explicit CORS origin and credentialed session requests
+- [x] Reproduce Chromium rejecting `__Host-hnt_oauth` because its callback path is not `/`, which produces `invalid_state` before session creation
+- [x] Rename only the callback-scoped OAuth cookie to `__Secure-hnt_oauth`; retain Secure, HttpOnly, host-only, SameSite=Lax and narrow Path protections
+- [x] Preserve the valid `__Host-hnt_session` session cookie at `Path=/` and expose `authentication_required` instead of silently returning home
+- [x] Add backend cookie/lifecycle and actual coach-route login/workspace/refresh/logout/failure tests; verify the fixed callback with local Chromium
+- [ ] Deploy the corrected backend and frontend, then perform a real LinkedIn login and inspect the production session cookie and subsequent `/auth/session` request; mocked/local tests are not real-provider verification
 
 ## Marketing-claim release
 

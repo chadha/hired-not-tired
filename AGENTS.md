@@ -39,4 +39,5 @@ use the editor.
 - LinkedIn production authentication uses `src/lib/linkedin-auth.ts` only for OIDC contracts and capability gating; the standalone modular FastAPI service in `backend/` owns code exchange, validation, account provisioning and secure sessions, while the explicitly fictional local demo never counts as authentication.
 - Backend auth uses async SQLAlchemy/Alembic with PostgreSQL in production; local portable tests may use SQLite, CI must exercise PostgreSQL, and the backend must never be replaced by browser-side OAuth or Lovable Cloud auth.
 - PayPal billing stays in the FastAPI ownership/CSRF/idempotency boundary: pending checkout associations, server-verified subscriptions and signed webhooks own entitlements, while the frontend never grants paid state from browser approval or demo data.
+- Pricing comparison and FAQ live in a presentation-only component; plan availability and current access come from FastAPI, so marketing copy cannot invent tier entitlements or silently enable checkout.
 - Framer Motion owns UI micro-interactions and must respect reduced-motion preferences so animation remains consistent and accessible across routes.

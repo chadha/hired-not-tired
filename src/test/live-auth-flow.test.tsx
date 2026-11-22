@@ -127,12 +127,29 @@ describe("Live LinkedIn authentication flow", () => {
     expect(screen.queryByRole("button", { name: "Explore the local demo" })).toBeNull();
   });
 
+  it("shows authentication_required as a neutral sign-in notice", async () => {
+    const fetchMock = mockAuthResponses(
+      available,
+      json({ error: { message: "Sign in to continue." } }, 401),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await renderLiveLanding("/?auth_error=authentication_required");
+
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveTextContent("Sign in with LinkedIn to open your coach.");
+    expect(screen.queryByText(/could not be verified/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("keeps callback errors visible without bootstrapping an older session", async () => {
     const fetchMock = mockAuthResponses(configurationRequired, json(workspace));
     vi.stubGlobal("fetch", fetchMock);
     await renderLiveLanding("/?auth_error=oauth_validation_failed&error_description=private");
 
-    await screen.findByText("LinkedIn sign-in could not be validated. No session was created.");
+    const error = await screen.findByText(
+      "LinkedIn sign-in could not be validated. No session was created.",
+    );
+    expect(error).toBeVisible();
     expect(screen.queryByText(/private/)).toBeNull();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://backend.test/api/v1/auth/capabilities");
@@ -170,7 +187,7 @@ describe("Live LinkedIn authentication flow", () => {
     ]);
   });
 
-  it("leaves the home page clean when invalid_state has no active session", async () => {
+  it("explains invalid_state when no active session can be restored", async () => {
     const fetchMock = mockAuthResponses(
       available,
       json({ error: { message: "Sign in to continue." } }, 401),
@@ -178,14 +195,16 @@ describe("Live LinkedIn authentication flow", () => {
     vi.stubGlobal("fetch", fetchMock);
     await renderLiveLanding("/?auth_error=invalid_state");
 
-    await screen.findByRole("button", { name: "Continue with LinkedIn" });
+    await screen.findByText(
+      "Your LinkedIn sign-in attempt is no longer valid. Please start again.",
+    );
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "https://backend.test/api/v1/auth/session",
         expect.anything(),
       ),
     );
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Continue with LinkedIn" })).toBeEnabled();
     expect(window.location.search).toBe("");
     expect(screen.queryByText("Authenticated coach")).toBeNull();
   });

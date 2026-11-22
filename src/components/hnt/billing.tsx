@@ -18,15 +18,21 @@ export function PricingPlans({
   signedIn,
   busyPlan,
   onSelect,
+  checking = false,
+  allowSignIn = false,
+  currentPlan = null,
 }: {
   plans: BillingPlan[];
   checkoutAvailable: boolean;
   signedIn: boolean;
   busyPlan: PlanKey | null;
   onSelect: (plan: BillingPlan) => void;
+  checking?: boolean;
+  allowSignIn?: boolean;
+  currentPlan?: string | null;
 }) {
   return (
-    <div className="grid gap-5 md:grid-cols-3">
+    <div className="grid items-stretch gap-6 md:grid-cols-3">
       {plans.map((plan) => {
         const available = checkoutAvailable && plan.configured;
         return (
@@ -34,13 +40,13 @@ export function PricingPlans({
             key={plan.key}
             aria-label={`${plan.name} monthly plan`}
             className={cn(
-              "relative rounded-[20px] border bg-card p-6 shadow-soft",
+              "relative flex flex-col rounded-[20px] border bg-card p-6 shadow-soft",
               plan.recommended && "border-primary ring-2 ring-primary/15",
             )}
           >
             {plan.recommended && (
               <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
-                Most popular
+                Most Popular
               </span>
             )}
             <h2 className="font-display text-2xl font-bold">{plan.name}</h2>
@@ -54,14 +60,18 @@ export function PricingPlans({
               EUR · one-month billing interval
             </p>
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-              A configurable monthly subscription option for the existing Hired Not Tired workflow.
-              No unimplemented feature or usage limit is promised.
+              {plan.key === "starter"
+                ? "A practical starting point for your next application."
+                : plan.key === "pro"
+                  ? "Our recommended choice for a focused job search."
+                  : "A higher-priced option for your next career chapter."}
             </p>
             <ul className="mt-5 space-y-2 text-sm">
               {[
-                "Chat-first career workflow",
-                "Candidate-controlled application tools",
-                "CV and profile versions",
+                "See where your experience fits each role",
+                "Tailor your CV with facts you confirm",
+                "Export PDF or DOCX when you are ready",
+                "Review outreach before taking the next step",
               ].map((capability) => (
                 <li key={capability} className="flex items-start gap-2">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -69,20 +79,36 @@ export function PricingPlans({
                 </li>
               ))}
             </ul>
+            <p className="mb-6 mt-4 text-xs leading-relaxed text-muted-foreground">
+              {plan.key === "premium"
+                ? "Same current tools; no exclusive extras or higher limits."
+                : "All current career tools included."}
+            </p>
             <Button
-              className="mt-6 w-full"
+              className="mt-auto w-full"
               variant={plan.recommended ? "default" : "outline"}
-              disabled={!available || busyPlan !== null}
+              disabled={
+                checking ||
+                busyPlan !== null ||
+                Boolean(currentPlan) ||
+                (signedIn ? !available : !allowSignIn)
+              }
               onClick={() => onSelect(plan)}
             >
               {busyPlan === plan.key && <LoaderCircle />}
-              {!available && !signedIn
-                ? "Sandbox unavailable"
-                : busyPlan === plan.key
-                  ? "Preparing Sandbox…"
-                  : signedIn
-                    ? `Choose ${plan.name}`
-                    : "Sign in to subscribe"}
+              {checking
+                ? "Checking account…"
+                : currentPlan
+                  ? currentPlan === plan.key
+                    ? "Current plan"
+                    : "Plan change unavailable"
+                  : busyPlan === plan.key
+                    ? "Preparing Sandbox…"
+                    : signedIn
+                      ? `Choose ${plan.name}`
+                      : allowSignIn
+                        ? `Sign in for ${plan.name}`
+                        : "Sandbox unavailable"}
             </Button>
             {!available && (
               <p className="mt-2 text-center text-xs text-muted-foreground">
@@ -116,6 +142,11 @@ export function PayPalSubscriptionButton({
     let active = true;
     const target = container.current;
     if (!target) return;
+    if (intent.environment !== "sandbox") {
+      setState("error");
+      setMessage("Only PayPal Sandbox checkout is available. No payment was started.");
+      return;
+    }
     loadPayPalSdk(clientId)
       .then((paypal) => {
         if (!active || !container.current) return;
@@ -173,7 +204,7 @@ export function PayPalSubscriptionButton({
       active = false;
       target.replaceChildren();
     };
-  }, [clientId, intent.intent_id, intent.paypal_plan_id, onVerify]);
+  }, [clientId, intent.environment, intent.intent_id, intent.paypal_plan_id, onVerify]);
 
   return (
     <section
@@ -265,9 +296,9 @@ export function BillingSummary({
               disabled={busy}
               onClick={() => {
                 setError(null);
-                void onCancel(status.subscription_id!).catch((reason: Error) =>
-                  setError(reason.message),
-                );
+                const subscriptionId = status.subscription_id;
+                if (!subscriptionId) return;
+                void onCancel(subscriptionId).catch((reason: Error) => setError(reason.message));
               }}
             >
               Confirm cancellation

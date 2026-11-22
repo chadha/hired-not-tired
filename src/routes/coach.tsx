@@ -250,7 +250,7 @@ function Coach() {
           session.clear();
           if (!active) return;
           if (error instanceof ApiError && error.status === 401) {
-            nav({ to: "/" });
+            nav({ to: "/", search: { auth_error: "authentication_required" } });
           } else {
             setLoadErr((error as Error).message);
           }

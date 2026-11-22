@@ -58,8 +58,8 @@ describe("Sandbox pricing", () => {
     expect(screen.getByLabelText("Starter monthly plan").textContent).toContain("4,99");
     expect(screen.getByLabelText("Pro monthly plan").textContent).toContain("9,99");
     expect(screen.getByLabelText("Premium monthly plan").textContent).toContain("19,99");
-    expect(screen.getByText("Most popular")).toBeInTheDocument();
-    expect(screen.getByLabelText("Pro monthly plan").className).toContain("ring-2");
+    expect(BILLING_PLANS.find((plan) => plan.key === "pro")?.recommended).toBe(true);
+    expect(BILLING_PLANS.filter((plan) => plan.recommended)).toHaveLength(1);
     expect(screen.getAllByText("EUR · one-month billing interval")).toHaveLength(3);
   });
 
@@ -99,6 +99,43 @@ describe("Sandbox pricing", () => {
     expect(screen.getByRole("button", { name: "Choose Starter" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Choose Pro" }));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ key: "pro", amount: "9.99" }));
+  });
+
+  it("offers sign-in for every plan without claiming checkout is configured", () => {
+    const onSelect = vi.fn();
+    render(
+      <PricingPlans
+        plans={BILLING_PLANS}
+        checkoutAvailable={false}
+        signedIn={false}
+        allowSignIn
+        busyPlan={null}
+        onSelect={onSelect}
+      />,
+    );
+    for (const plan of BILLING_PLANS) {
+      fireEvent.click(screen.getByRole("button", { name: `Sign in for ${plan.name}` }));
+      expect(onSelect).toHaveBeenCalledWith(plan);
+    }
+  });
+
+  it("blocks additional checkout while server-confirmed subscription access remains", () => {
+    const onSelect = vi.fn();
+    render(
+      <PricingPlans
+        plans={BILLING_PLANS.map((plan) => ({ ...plan, configured: true }))}
+        checkoutAvailable
+        signedIn
+        currentPlan="pro"
+        busyPlan={null}
+        onSelect={onSelect}
+      />,
+    );
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+    }
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
 
@@ -172,6 +209,40 @@ describe("PayPal subscription button", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mock Sandbox cancellation" }));
     expect(await screen.findByText(/PayPal approval was cancelled/)).toBeInTheDocument();
     expect(onVerify).not.toHaveBeenCalled();
+    expect(screen.queryByText(/entitlement is active/)).not.toBeInTheDocument();
+  });
+
+  it("does not load or approve a live checkout", async () => {
+    mockButtons();
+    const paypal = window.paypal;
+    if (!paypal) throw new Error("Test PayPal adapter missing");
+    const buttons = vi.spyOn(paypal, "Buttons");
+    const onVerify = vi.fn();
+    render(
+      <PayPalSubscriptionButton
+        intent={{ ...intent, environment: "live" }}
+        clientId="sandbox-public-client"
+        onVerify={onVerify}
+      />,
+    );
+    await screen.findByRole("alert");
+    expect(buttons).not.toHaveBeenCalled();
+    expect(onVerify).not.toHaveBeenCalled();
+  });
+
+  it("does not display active access while verification is pending or rejected", async () => {
+    mockButtons();
+    const onVerify = vi.fn().mockRejectedValue(new Error("Verification failed"));
+    render(
+      <PayPalSubscriptionButton
+        intent={intent}
+        clientId="sandbox-public-client"
+        onVerify={onVerify}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Mock Sandbox approval" }));
+    await screen.findByRole("alert");
+    expect(onVerify).toHaveBeenCalledWith("I-SANDBOX");
     expect(screen.queryByText(/entitlement is active/)).not.toBeInTheDocument();
   });
 
