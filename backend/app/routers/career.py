@@ -96,7 +96,6 @@ from app.config import Settings
 from app.database import get_db, utcnow
 from app.dependencies import AuthContext, get_current_auth, require_csrf
 from app.errors import ApiError
-from app.needle import NeedleClient, NeedleError
 from app.models import (
     ApplicationPackageRecord,
     CareerProfile,
@@ -107,6 +106,7 @@ from app.models import (
     PackageRevision,
     ProfileRevision,
 )
+from app.needle import NeedleClient, NeedleError
 from app.providers import BraveSearchProvider, JobPageImporter, ProviderError, normalize_public_url
 
 router = APIRouter(tags=["Career engine"])
