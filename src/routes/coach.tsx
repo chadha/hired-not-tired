@@ -18,6 +18,7 @@ import {
 import { CareerTimeline, OutreachCard } from "@/components/hnt/outreach";
 import { ApplicationPackageCard } from "@/components/hnt/application-package";
 import { AccountSettings } from "@/components/hnt/account-settings";
+import { CareerSourcePanel } from "@/components/hnt/career-source-panel";
 import type { AnswerInput } from "@/components/hnt/application-content";
 import {
   api,
@@ -1503,7 +1504,39 @@ function Coach() {
           </Bubble>
         );
       case "profile":
-        return c && <ProfileCard c={c} demo={demo} />;
+        return c && (
+          <div className="grid gap-4">
+            <ProfileCard c={c} demo={demo} />
+            {isLiveApi && (
+              <CareerSourcePanel
+                candidate={c}
+                onImportLinkedIn={async (url) => {
+                  const updated = await api.linkedin(c.candidate_id, url, true);
+                  setC(updated);
+                  push({ k: "coach", text: "Your LinkedIn profile data has been imported. Review your name, summary and skills before confirming your career profile." });
+                }}
+                onUploadCv={async (filename, text) => {
+                  const updated = await api.uploadCv(c.candidate_id, filename, text);
+                  setC(updated);
+                  push({ k: "coach", text: `Uploaded **${filename}** and added its extracted text to your career profile. LinkedIn and CV information are retained as separate sources.` });
+                }}
+                onFindJobs={async () => {
+                  const found = await api.discover(c.candidate_id);
+                  const results = await Promise.all(found.map((job) => api.match(job.job_id, c.candidate_id).catch(() => null)));
+                  const byId: Record<string, JobMatch> = {};
+                  results.forEach((result) => { if (result) byId[result.job_id] = result; });
+                  const ranked = [...found].sort((a, b) => (byId[b.job_id]?.match_score ?? 0) - (byId[a.job_id]?.match_score ?? 0));
+                  setJobs(ranked);
+                  setMatches((previous) => ({ ...previous, ...byId }));
+                  push(
+                    { k: "coach", text: ranked.length ? `Found **${ranked.length} LinkedIn jobs** and ranked them against your profile. Open a role to inspect the match and its gaps.` : "Needle returned no LinkedIn jobs for your current target roles. Try broadening your preferences." },
+                    { k: "jobs" },
+                  );
+                }}
+              />
+            )}
+          </div>
+        );
       case "jobs":
         return (
           <div className="grid gap-4">
