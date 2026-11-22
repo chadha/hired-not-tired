@@ -98,6 +98,7 @@ class OAuthAttempt(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     state_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    # Hash of the per-attempt browser-cookie secret; column name retained for schema compatibility.
     nonce_hash: Mapped[str] = mapped_column(String(64))
     redirect_uri: Mapped[str] = mapped_column(String(2048))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
