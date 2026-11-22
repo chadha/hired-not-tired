@@ -31,9 +31,8 @@ class FakeLinkedInOIDC(LinkedInOIDC):
         assert code == "mock-code"
         return "mock-id-token"
 
-    async def validate_id_token(self, id_token: str, expected_nonce: str) -> LinkedInIdentityClaims:
+    async def validate_id_token(self, id_token: str) -> LinkedInIdentityClaims:
         assert id_token == "mock-id-token"
-        self.nonces.append(expected_nonce)
         if self.validation_error:
             raise OIDCError(self.validation_error)
         return self.claims
