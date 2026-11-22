@@ -476,8 +476,8 @@ class OnboardInput(StrictModel):
 
 
 class LinkedInProfileInput(StrictModel):
-    linkedin_url: str = Field(max_length=2048)
-    profile_data: dict[str, Any] = Field(default_factory=dict)
+    linkedin_url: str = Field(min_length=8, max_length=2048)
+    consent_confirmed: Literal[True]
 
 
 class EmptyInput(StrictModel):
