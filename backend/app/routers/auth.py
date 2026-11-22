@@ -118,14 +118,14 @@ async def valid_attempt(
     state: str | None,
 ) -> OAuthAttempt | None:
     settings = settings_for(request)
-    # Direct LinkedIn returns our state. Supabase returns its own flow state, so the
-    # signed attempt cookie and PKCE verifier provide callback correlation there.
+    # Direct LinkedIn returns our state. The signed attempt cookie binds it to this
+    # browser; Supabase returns its own flow state and uses the cookie secret as PKCE verifier.
     if not settings.supabase_mode and not state:
         return None
     cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
     if cookie is None:
         return None
-    attempt_id, nonce = cookie
+    attempt_id, attempt_secret = cookie
     query = select(OAuthAttempt)
     query = (
         query.where(OAuthAttempt.id == attempt_id)
@@ -139,7 +139,7 @@ async def valid_attempt(
         or attempt.consumed_at is not None
         or attempt.redirect_uri != settings.linkedin_redirect_uri
         or is_expired(attempt.expires_at)
-        or keyed_hash(nonce, settings) != attempt.nonce_hash
+        or keyed_hash(attempt_secret, settings) != attempt.nonce_hash
     ):
         return None
     attempt.consumed_at = utcnow()
@@ -169,12 +169,6 @@ async def linkedin_callback(
     if not code:
         return callback_failure("oauth_failed", settings)
 
-    cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
-    if cookie is None:
-        logger.warning("LinkedIn callback rejected request_id=%s stage=oauth_cookie_missing", request.state.request_id)
-        return callback_failure("invalid_state", settings)
-    _, nonce = cookie
-
     if settings.supabase_mode:
         cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
         if cookie is None:
@@ -184,19 +178,28 @@ async def linkedin_callback(
         try:
             claims = await supabase_for(request).exchange_code(code, code_verifier)
         except OIDCError:
-            logger.warning("LinkedIn callback rejected request_id=%s stage=supabase_code_exchange", request.state.request_id)
+            logger.warning(
+                "LinkedIn callback rejected request_id=%s stage=supabase_code_exchange",
+                request.state.request_id,
+            )
             return callback_failure("oauth_validation_failed", settings)
     else:
         provider = provider_for(request)
         try:
             id_token = await provider.exchange_code(code)
         except OIDCError:
-            logger.warning("LinkedIn callback rejected request_id=%s stage=token_exchange", request.state.request_id)
+            logger.warning(
+                "LinkedIn callback rejected request_id=%s stage=token_exchange",
+                request.state.request_id,
+            )
             return callback_failure("oauth_validation_failed", settings)
         try:
             claims = await provider.validate_id_token(id_token)
         except OIDCError:
-            logger.warning("LinkedIn callback rejected request_id=%s stage=id_token_validation", request.state.request_id)
+            logger.warning(
+                "LinkedIn callback rejected request_id=%s stage=id_token_validation",
+                request.state.request_id,
+            )
             return callback_failure("oauth_validation_failed", settings)
 
     user, first_login = await provision_user(db, claims, settings)
@@ -216,7 +219,10 @@ async def linkedin_callback(
     )
     db.add(auth_session)
     await db.flush()
-    logger.info("LinkedIn callback created application session request_id=%s", request.state.request_id)
+    logger.info(
+        "LinkedIn callback created application session request_id=%s",
+        request.state.request_id,
+    )
     query = urlencode({"auth": "linkedin", "first_login": "1" if first_login else "0"})
     response = RedirectResponse(f"{settings.frontend_url}/coach?{query}", status_code=303)
     set_session_cookie(response, token, settings)
