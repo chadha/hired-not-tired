@@ -330,14 +330,22 @@ async def save_linkedin_profile(
 ) -> JsonDict:
     require_candidate(auth, candidate_id)
     if payload.consent_confirmed is not True:
-        raise ApiError(422, "consent_required", "Confirm that you want Hired Not Tired to import your LinkedIn profile.")
+        raise ApiError(
+            422,
+            "consent_required",
+            "Confirm that you want Hired Not Tired to import your LinkedIn profile.",
+        )
 
     async def mutate() -> Candidate:
         candidate = await get_candidate(db, auth)
         profile_url = validate_linkedin_profile(payload.linkedin_url)
         identity_match = re.search(r"/in/([^/?#]+)", profile_url)
         if not identity_match:
-            raise ApiError(422, "invalid_linkedin_profile", "Use a LinkedIn public profile URL in the format linkedin.com/in/your-profile.")
+            raise ApiError(
+                422,
+                "invalid_linkedin_profile",
+                "Use a LinkedIn public profile URL in the format linkedin.com/in/your-profile.",
+            )
         try:
             response = await needle_for(request).get_profile(identity_match.group(1))
         except NeedleError as error:
@@ -361,7 +369,9 @@ async def save_linkedin_profile(
                 if isinstance(item, dict):
                     title = item.get("title") or item.get("jobTitle") or ""
                     company = item.get("companyName") or item.get("company") or ""
-                    dates = " ".join(str(item.get(key) or "") for key in ("startDate", "endDate")).strip()
+                    dates = " ".join(
+                        str(item.get(key) or "") for key in ("startDate", "endDate")
+                    ).strip()
                     line = " at ".join(x for x in (str(title).strip(), str(company).strip()) if x)
                     if line:
                         experience_lines.append(f"{line} {dates}".strip())
@@ -579,7 +589,11 @@ async def discover_jobs(
     require_candidate(auth, payload.candidate_id)
     candidate = await get_candidate(db, auth)
     if not needle_for(request).configured:
-        raise ApiError(503, "needle_not_configured", "LinkedIn job discovery is not configured on the production backend.")
+        raise ApiError(
+            503,
+            "needle_not_configured",
+            "LinkedIn job discovery is not configured on the production backend.",
+        )
     terms = list(dict.fromkeys([*candidate.target_roles, candidate.career_goal]))
     keywords = " ".join(value.strip() for value in terms if value and value.strip())[:500]
     if not keywords:
