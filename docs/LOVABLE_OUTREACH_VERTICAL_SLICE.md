@@ -1,90 +1,76 @@
-# Lovable handoff: first outreach vertical slice
+# Lovable handoff: CV-led application experience and three application paths
 
-Read these repository documents before changing the UI:
+**Product decisions locked:** both CV creation methods; PDF + DOCX; LinkedIn Easy Apply guided handoff plus direct submission only through an official authorized integration; supported direct employer applications; hiring-manager outreach through LinkedIn handoff and email. Preserve the existing single continuous chat-first interface.
+
+Read before changing the UI:
 - OUTREACH_ENGINE_MVP_SPEC.md
 - OUTREACH_ENGINE_IMPLEMENTATION_PLAN.md
 - LOVABLE_HANDOFF.md
 
-## Build only this first vertical slice
+## Product outcome
 
-Select a saved job → add a contact → generate a message → approve → LinkedIn handoff → confirm sent → record response.
+Help a candidate go from a selected job to a truthful, tailored application and relevant professional outreach. The reusable unit is a versioned **Job Application Package**, not a one-off generated message.
 
-### Non-negotiable product UX
+## Primary candidate journey
 
-Keep the existing single, continuous chat-first experience. Do not create a separate wizard, dashboard redesign, multi-page funnel or disconnected outreach workspace. Render contextual cards and composer inline in the existing conversation.
+1. **Find/select a job:** use existing job discovery and saved job cards. Clearly label LinkedIn Easy Apply only when reliable source data confirms it.
+2. **Provide career history:** candidate can upload/import an existing CV (PDF/DOCX) OR build/complete a structured career profile conversationally. Both paths must be supported.
+3. **Analyze the job:** parse required/preferred skills, experience, qualifications, responsibilities and application questions. Show requirement-level matches, candidate evidence, gaps and uncertainty. Do not treat a heuristic score as ATS acceptance probability.
+4. **Create tailored CV:** generate an editable job-specific CV grounded in candidate-confirmed facts. Preserve the master CV; create an immutable version for each job. Never invent metrics, skills, employers, titles or qualifications.
+5. **Review/export:** show a clear change/evidence review. Export both PDF and DOCX. Validate document text extraction, headings, reading order and layout. Editing after approval invalidates approval.
+6. **Choose an application path:** show all supported paths in the same conversation:
+   - **LinkedIn Easy Apply:** prepare CV and answers, then guide the candidate through LinkedIn's official UI. Direct submit is available only if backend reports a formally authorized official integration. Never scrape, automate a logged-in browser, collect credentials/cookies or use unofficial endpoints.
+   - **Apply on employer site:** if an authorized, supported employer/ATS integration exists, prefill and submit only after explicit candidate approval. Otherwise open the employer's official application form and provide the ready package. Never show “submitted” without trustworthy confirmation.
+   - **Contact hiring team:** identify/add evidence-backed potential contacts. Prepare LinkedIn message for manual handoff or email. Attach the exact approved tailored CV to email only when a secure authorized email provider is enabled. LinkedIn message and CV attachment are completed manually by the candidate where the LinkedIn UI supports attachments.
+7. **Track outcomes:** one job timeline records preparation, CV version, approval, handoff, actual submission, outreach, replies and outcomes. Distinguish candidate-reported from provider-confirmed events.
 
-### User journey and UI
+## Job Application Package UI
 
-1. On each existing job card, provide **Find/add contact**.
-2. For this milestone, “Find contact” opens a small inline chat interaction that allows the candidate to add a contact manually. Do not imply automated LinkedIn search exists.
-3. Contact fields: name (required), current title, company, public LinkedIn profile URL (required for LinkedIn handoff), optional location, source URL, evidence/notes. Unknown fields stay blank.
-4. Render a **Potential hiring contact** card with the source/evidence, last checked time if available, confidence/uncertainty and an edit action. Never claim the person is the confirmed hiring manager without evidence.
-5. Provide **Generate LinkedIn message**. Generate from the selected saved job, confirmed candidate profile and contact evidence only. Do not invent shared connections, achievements, recipient responsibilities or facts. If facts are missing, use a neutral message or flag the missing information.
-6. Show an editable inline message composer with the exact LinkedIn destination, message text, concise personalization rationale and factuality warnings.
-7. Provide an explicit approval confirmation showing the recipient profile and exact final text. The action is **Approve message**, not send.
-8. Only after backend approval succeeds, enable **Open LinkedIn to send**. This opens the supplied public profile URL in a new tab and makes the approved message easy to copy. Do not automate LinkedIn, fill its message composer, or claim the message was sent.
-9. After handoff, ask **Did you send this message?** with clear **Yes, I sent it** and **Not yet** actions. Only the Yes action records a candidate-confirmed/self-reported send.
-10. Provide **Record a reply** with received date and reply text or summary. Save it to the selected job's outreach timeline. Label it candidate-recorded, not provider-verified.
+Render contextual cards inline in the existing conversation:
+- Selected job and application-channel capabilities.
+- CV source: uploaded CV or conversational profile.
+- Requirement match/evidence and missing information.
+- Tailored CV preview, edit actions, version and PDF/DOCX export.
+- Application question/answer review.
+- Application path choices and exact destination.
+- Contact evidence, message composer and approved CV attachment reference.
+- Approval summary and timeline.
 
-### Backend integration
+Do not create a separate multi-page wizard, unrelated dashboard redesign or disconnected outreach workspace. Keep the interaction conversational and low-friction.
 
-- Use only Hired Not Tired FastAPI endpoints under the configured VITE_API_BASE_URL.
-- Inspect the actual OpenAPI schema and existing backend routes before wiring requests.
-- Reuse existing endpoints and models where possible. Do not invent routes and assume they exist.
-- If a required backend endpoint is missing, identify it explicitly and keep the UI in a truthful unavailable state; do not silently replace it with fake success.
-- Centralize requests in the existing API client.
-- Never call Needle or LinkedIn APIs directly from the browser.
-- Never add secrets to frontend environment variables.
-- Treat the current in-memory backend as demo/ephemeral only. Show a demo/local label where appropriate.
+## Backend integration rules
 
-### State and approval rules
+- Inspect actual FastAPI OpenAPI, existing CV/profile/job routes, schemas, storage and tests before wiring the UI.
+- Reuse existing routes and models. Do not invent endpoints and pretend they exist.
+- Centralize API calls in the existing API client and use VITE_API_BASE_URL.
+- If a capability is missing, show a truthful unavailable/coming-next state and report the exact backend contract required.
+- Keep provider credentials and LLM secrets backend-only.
+- Existing in-memory backend is demo/ephemeral and must be visibly labeled; do not represent it as durable or multi-user safe.
 
-- States: draft → approved → handed_off → candidate_confirmed_sent. A reply is a separate timeline event.
-- Editing recipient or message after approval must invalidate approval and require a new approval.
-- Do not enable handoff before backend approval is confirmed.
-- Opening LinkedIn is not proof of sending.
-- Do not show a sent badge until the candidate explicitly confirms.
-- Demo data and demo events must be clearly labeled DEMO.
+## Safety and approval invariants
 
-### Out of scope for this task
+- All CV claims trace to candidate-confirmed source facts. Unknown facts remain unknown.
+- Candidate reviews exact CV, answers, destination, recipient and message before external action.
+- Approval binds to artifact version/hash and exact destination/content. Any edit invalidates approval.
+- LinkedIn handoff is not submission or sending.
+- Employer-form handoff is not submission.
+- Only an authorized provider's trustworthy success response may create provider-confirmed submission/send status. Candidate attestations are self-reported.
+- No scraping, unauthorized browser automation, fake contact identities, guessed email addresses, bulk outreach, or automatic follow-ups.
+- No paid services, deployment, cloud resources or external messages without explicit approval.
 
-- Email channel implementation.
-- Automated LinkedIn discovery or scraping.
-- LinkedIn API or partner integration.
-- Browser automation or auto-send.
-- Needle or any third-party outreach provider.
-- Bulk campaigns, sequences and automatic follow-ups.
-- Database migration, authentication redesign, deployment or paid services.
-- Changes to onboarding, job matching, coach, or unrelated chat behavior.
+## Testing requirements
 
-### Visual and interaction requirements
+Test both CV input paths; PDF/DOCX parsing; job parsing; evidence mapping; missing/contradictory facts; CV edits and versioning; PDF/DOCX export and text extraction; approval invalidation; Easy Apply vs non-Easy Apply capability states; direct employer integration success/failure/unsupported form; LinkedIn handoff without false sent status; email disabled/enabled gates and attachment version integrity; timeline provenance; backend unavailable and demo labeling.
 
-- Preserve the existing visual language, spacing and chat conversation.
-- Use inline cards and action buttons, not a new multi-step form.
-- Keep the number of steps low; ask for only the contact details needed to proceed.
-- Provide loading, empty, validation, success and error states.
-- Never use fake contact identities, fake profile photos or fabricated LinkedIn URLs.
-- All buttons must perform their advertised action.
+## Completion report
 
-### Testing and report
-
-Test the complete path with a clearly labeled test contact and a saved job:
-1. Select job.
-2. Add contact.
-3. Generate and edit message.
-4. Approve exact message.
-5. Open LinkedIn handoff.
-6. Confirm sent.
-7. Record a reply and see it in timeline.
-
-Also test: missing profile URL, missing job, invalid URL, no backend, backend error, edit-after-approval, handoff-before-approval, repeated clicks, cancel/not-yet, and reply validation.
-
-At completion, report:
+Report:
 - files/components changed;
-- exact backend endpoints used;
-- endpoints still missing;
-- tests run and results;
-- which data/states are real vs demo;
-- confirmation that no external message was sent by the app and no third-party provider was connected.
+- existing and new backend endpoints used;
+- missing backend contracts and integrations;
+- CV parsing/export/ATS validation tests and results;
+- which application paths are truly integrated vs guided handoff;
+- which states/data are real vs demo;
+- confirmation no external application or message was submitted automatically and no paid provider/infrastructure was activated.
 
-Do not redesign the app. Do not implement extra features beyond this vertical slice.
+Implement in small, verifiable increments. Do not build fake integration buttons. First prove the application package from job selection through tailored CV review and PDF/DOCX export, then connect each authorized application channel.
