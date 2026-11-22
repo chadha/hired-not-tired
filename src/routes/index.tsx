@@ -116,20 +116,29 @@ function Index() {
     const authError = params.get("auth_error");
     const messages: Record<string, string> = {
       access_denied: "LinkedIn authorization was cancelled. No account or session was created.",
-      invalid_state: "The sign-in attempt expired or was invalid. Please start again.",
       oauth_validation_failed: "LinkedIn sign-in could not be validated. No session was created.",
       account_closed:
         "This account is closed. Contact the operator before attempting to restore access.",
       oauth_failed: "LinkedIn sign-in could not be completed. Please try again.",
     };
-    if (authError) setErr(messages[authError] ?? messages["oauth_failed"] ?? "Sign-in failed.");
+    if (authError === "invalid_state") {
+      params.delete("auth_error");
+      const search = params.toString();
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`,
+      );
+    } else if (authError) {
+      setErr(messages[authError] ?? messages["oauth_failed"] ?? "Sign-in failed.");
+    }
     if (params.get("account") === "closed") {
       setNotice(
         "Your active profile was deleted and your account was closed. Documented audit and backup retention still applies.",
       );
     }
-    // A failed callback must remain visible instead of being hidden by an older valid session.
-    if (authError) return;
+    // Other failed callbacks must remain visible instead of being hidden by an older valid session.
+    if (authError && authError !== "invalid_state") return;
     let active = true;
     api
       .linkedinAuthSession()
@@ -139,7 +148,9 @@ function Index() {
         nav({ to: "/coach" });
       })
       .catch((error: ApiError) => {
-        if (error.status !== 401 && active && !authError) setErr(error.message);
+        if (error.status !== 401 && active && (!authError || authError === "invalid_state")) {
+          setErr(error.message);
+        }
       });
     return () => {
       active = false;

@@ -152,4 +152,41 @@ describe("Live LinkedIn authentication flow", () => {
       "https://backend.test/api/v1/auth/session",
     ]);
   });
+
+  it("discards stale invalid_state and still bootstraps an authenticated session", async () => {
+    const fetchMock = mockAuthResponses(available, json(workspace));
+    vi.stubGlobal("fetch", fetchMock);
+    await renderLiveLanding("/?auth_error=invalid_state&utm_source=linkedin#details");
+
+    await screen.findByText("Authenticated coach");
+    expect(
+      screen.queryByText("The sign-in attempt expired or was invalid. Please start again."),
+    ).toBeNull();
+    expect(window.location.search).toBe("?utm_source=linkedin");
+    expect(window.location.hash).toBe("#details");
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://backend.test/api/v1/auth/capabilities",
+      "https://backend.test/api/v1/auth/session",
+    ]);
+  });
+
+  it("leaves the home page clean when invalid_state has no active session", async () => {
+    const fetchMock = mockAuthResponses(
+      available,
+      json({ error: { message: "Sign in to continue." } }, 401),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await renderLiveLanding("/?auth_error=invalid_state");
+
+    await screen.findByRole("button", { name: "Continue with LinkedIn" });
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://backend.test/api/v1/auth/session",
+        expect.anything(),
+      ),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(window.location.search).toBe("");
+    expect(screen.queryByText("Authenticated coach")).toBeNull();
+  });
 });
