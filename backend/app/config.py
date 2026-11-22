@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     search_api_key: str | None = None
     needle_api_key: str | None = None
     needle_connected_account_id: str | None = None
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-sonnet-5-5"
     search_api_url: str = "https://api.search.brave.com/res/v1/web/search"
     outbound_timeout_seconds: float = Field(default=10.0, ge=2.0, le=30.0)
     outbound_max_bytes: int = Field(default=1_500_000, ge=10_000, le=5_000_000)
@@ -73,6 +75,7 @@ class Settings(BaseSettings):
         "search_api_key",
         "needle_api_key",
         "needle_connected_account_id",
+        "anthropic_api_key",
         "paypal_client_id",
         "paypal_client_secret",
         "paypal_webhook_id",
@@ -177,6 +180,10 @@ class Settings(BaseSettings):
     @property
     def needle_configured(self) -> bool:
         return bool(self.needle_api_key and self.needle_connected_account_id)
+
+    @property
+    def anthropic_configured(self) -> bool:
+        return bool(self.anthropic_api_key)
 
     @property
     def paypal_configured(self) -> bool:
