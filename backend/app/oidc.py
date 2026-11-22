@@ -120,7 +120,9 @@ class LinkedInOIDC:
         except OIDCError:
             raise
         except PyJWTError as exc:
-            logger.warning("LinkedIn ID token claims/signature rejected category=%s", type(exc).__name__)
+            logger.warning(
+                "LinkedIn ID token claims/signature rejected category=%s", type(exc).__name__
+            )
             raise OIDCError("oauth_validation_failed") from None
         except (ValueError, TypeError) as exc:
             logger.warning("LinkedIn ID token decoding failed type=%s", type(exc).__name__)
