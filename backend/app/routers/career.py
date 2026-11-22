@@ -1,7 +1,7 @@
 import re
 from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
@@ -96,6 +96,7 @@ from app.config import Settings
 from app.database import get_db, utcnow
 from app.dependencies import AuthContext, get_current_auth, require_csrf
 from app.errors import ApiError
+from app.needle import NeedleClient, NeedleError
 from app.models import (
     ApplicationPackageRecord,
     CareerProfile,
@@ -122,6 +123,10 @@ def search_for(request: Request) -> BraveSearchProvider:
 
 def importer_for(request: Request) -> JobPageImporter:
     return cast(JobPageImporter, request.app.state.job_importer)
+
+
+def needle_for(request: Request) -> NeedleClient:
+    return cast(NeedleClient, request.app.state.needle)
 
 
 def public_url(value: str) -> str:
@@ -324,21 +329,68 @@ async def save_linkedin_profile(
     db: AsyncSession = Depends(get_db),
 ) -> JsonDict:
     require_candidate(auth, candidate_id)
-    if payload.profile_data:
-        raise ApiError(
-            422,
-            "unsupported_profile_import",
-            "Only an explicit public LinkedIn profile URL is accepted; no private profile data is imported.",
-        )
+    if payload.consent_confirmed is not True:
+        raise ApiError(422, "consent_required", "Confirm that you want Hired Not Tired to import your LinkedIn profile.")
 
     async def mutate() -> Candidate:
         candidate = await get_candidate(db, auth)
-        updated = candidate.model_copy(
-            update={
-                "linkedin_url": validate_linkedin_profile(payload.linkedin_url),
-                "master_profile_version": candidate.master_profile_version + 1,
-            }
-        )
+        profile_url = validate_linkedin_profile(payload.linkedin_url)
+        identity_match = re.search(r"/in/([^/?#]+)", profile_url)
+        if not identity_match:
+            raise ApiError(422, "invalid_linkedin_profile", "Use a LinkedIn public profile URL in the format linkedin.com/in/your-profile.")
+        try:
+            response = await needle_for(request).get_profile(identity_match.group(1))
+        except NeedleError as error:
+            raise ApiError(503, "needle_unavailable", str(error)) from None
+        imported = response.get("profile", response.get("data", response))
+        if not isinstance(imported, dict):
+            raise ApiError(502, "invalid_needle_response", "Needle returned an invalid profile.")
+        first = str(imported.get("firstName") or "").strip()
+        last = str(imported.get("lastName") or "").strip()
+        full_name = str(imported.get("fullName") or " ".join(x for x in (first, last) if x)).strip()
+        raw_skills = imported.get("skills") or []
+        skills = []
+        for item in raw_skills:
+            value = item.get("name") if isinstance(item, dict) else item
+            if isinstance(value, str) and value.strip():
+                skills.append(value.strip())
+        work = imported.get("workExperience") or []
+        experience_lines = []
+        if isinstance(work, list):
+            for item in work[:30]:
+                if isinstance(item, dict):
+                    title = item.get("title") or item.get("jobTitle") or ""
+                    company = item.get("companyName") or item.get("company") or ""
+                    dates = " ".join(str(item.get(key) or "") for key in ("startDate", "endDate")).strip()
+                    line = " at ".join(x for x in (str(title).strip(), str(company).strip()) if x)
+                    if line:
+                        experience_lines.append(f"{line} {dates}".strip())
+        headline = str(imported.get("headline") or "").strip()
+        summary = str(imported.get("summary") or "").strip()
+        profile_summary = "\n".join(x for x in (headline, summary, *experience_lines) if x)
+        update = {
+            "linkedin_url": profile_url,
+            "full_name": candidate.full_name or full_name,
+            "summary": candidate.summary or profile_summary[:20000],
+            "skills": list(dict.fromkeys([*candidate.skills, *skills]))[:100],
+            "master_profile_version": candidate.master_profile_version + 1,
+            "profile_confirmed_at": None,
+            "master_documents": [
+                *candidate.master_documents,
+                {
+                    "source": "needle_linkedin_profile",
+                    "profile_url": profile_url,
+                    "imported_at": timestamp(),
+                    "headline": headline,
+                    "summary": summary,
+                    "work_experience": work[:30] if isinstance(work, list) else [],
+                    "education": imported.get("education") or [],
+                    "skills": skills,
+                    "throttled_sections": imported.get("throttledSections") or [],
+                },
+            ],
+        }
+        updated = candidate.model_copy(update=update)
         master = create_master_profile(updated)
         await save_candidate_revision(db, auth, updated, master, candidate.master_profile_version)
         return updated
@@ -524,19 +576,62 @@ async def discover_jobs(
     db: AsyncSession = Depends(get_db),
 ) -> JobsResponse:
     require_candidate(auth, payload.candidate_id)
-    rows = (
-        (
-            await db.execute(
-                select(JobRecord)
-                .where(JobRecord.user_id == auth.user.id)
-                .order_by(JobRecord.created_at.desc())
-                .limit(payload.limit)
-            )
+    candidate = await get_candidate(db, auth)
+    if not needle_for(request).configured:
+        raise ApiError(503, "needle_not_configured", "LinkedIn job discovery is not configured on the production backend.")
+    terms = list(dict.fromkeys([*candidate.target_roles, candidate.career_goal]))
+    keywords = " ".join(value.strip() for value in terms if value and value.strip())[:500]
+    if not keywords:
+        raise ApiError(422, "job_preferences_required", "Add at least one target role or career goal before searching LinkedIn.")
+    try:
+        response = await needle_for(request).search_jobs(
+            keywords=keywords,
+            location=candidate.locations[0] if candidate.locations else None,
+            limit=payload.limit,
         )
-        .scalars()
-        .all()
-    )
-    return JobsResponse(jobs=[job_schema(row) for row in rows])
+    except NeedleError as error:
+        raise ApiError(503, "needle_unavailable", str(error)) from None
+    external_jobs = response.get("jobs", response.get("data", []))
+    if isinstance(external_jobs, dict):
+        external_jobs = external_jobs.get("jobs", [])
+    if not isinstance(external_jobs, list):
+        raise ApiError(502, "invalid_needle_response", "Needle returned an invalid jobs response.")
+    saved: list[Job] = []
+    for item in external_jobs[:payload.limit]:
+        if not isinstance(item, dict):
+            continue
+        job_id = str(item.get("jobId") or item.get("id") or "").strip()
+        source_url = str(item.get("jobUrl") or item.get("url") or item.get("linkedinUrl") or "").strip()
+        if not source_url and job_id:
+            source_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+        title = str(item.get("title") or "").strip()
+        company_value = item.get("companyName") or item.get("company") or ""
+        company = str(company_value.get("name") if isinstance(company_value, dict) else company_value).strip()
+        if not source_url or not title or not company:
+            continue
+        description = str(item.get("description") or "")
+        location = str(item.get("location") or "")
+        requirements = item.get("skills") or item.get("requirements") or []
+        if not isinstance(requirements, list):
+            requirements = []
+        requirements = [str(value.get("name") if isinstance(value, dict) else value) for value in requirements]
+        existing = await db.scalar(select(JobRecord).where(JobRecord.user_id == auth.user.id, JobRecord.source_url == source_url))
+        at = utcnow()
+        if existing:
+            existing.title, existing.company, existing.location = title, company, location
+            existing.description, existing.requirements = description, requirements
+            existing.retrieved_at, existing.updated_at = at, at
+            record = existing
+        else:
+            record = JobRecord(
+                id=uuid4(), user_id=auth.user.id, title=title, company=company,
+                location=location, description=description, requirements=requirements,
+                source="linkedin_needle", source_url=source_url, retrieved_at=at,
+            )
+            db.add(record)
+        await db.flush()
+        saved.append(job_schema(record))
+    return JobsResponse(jobs=saved)
 
 
 @router.post("/jobs/{job_id}/match/{candidate_id}", response_model=JobMatch)
