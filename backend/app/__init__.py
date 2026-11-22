@@ -1,0 +1,1 @@
+"""Hired, Not Tired authentication service."""

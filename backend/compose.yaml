@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hnt
+      POSTGRES_PASSWORD: hnt
+      POSTGRES_DB: hnt
+    ports:
+      - "5432:5432"
+    volumes:
+      - hnt_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hnt -d hnt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hnt_postgres:
