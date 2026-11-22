@@ -1989,29 +1989,37 @@ async def coach_chat(
             block.text for block in completion.content if block.type == "text"
         ).strip()
         if not answer:
-            raise ApiError(502, "empty_ai_response", "Claude returned an empty response. Please retry.")
+            raise ApiError(
+                502,
+                "empty_ai_response",
+                "Claude returned an empty response. Please retry.",
+            )
     except anthropic.APIError as error:
         # Do not expose provider response bodies or credentials to the browser.
         status_code = getattr(error, "status_code", None)
         if status_code == 401:
             raise ApiError(
-                502, "claude_authentication_failed",
+                502,
+                "claude_authentication_failed",
                 "Claude rejected the configured API key. Check the Railway secret.",
             ) from None
         if status_code == 429:
             raise ApiError(
-                503, "claude_rate_limited",
+                503,
+                "claude_rate_limited",
                 "The AI coach is temporarily rate-limited. Please try again shortly.",
             ) from None
         raise ApiError(
-            502, "claude_provider_error",
+            502,
+            "claude_provider_error",
             "The AI coach could not complete this response. Please try again.",
         ) from None
     except ApiError:
         raise
     except Exception:
         raise ApiError(
-            502, "claude_connection_error",
+            502,
+            "claude_connection_error",
             "The AI coach could not reach Claude. Please try again.",
         ) from None
 
