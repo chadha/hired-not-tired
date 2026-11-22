@@ -15,7 +15,12 @@ from app.models import (
 )
 from app.schemas import LinkedInIdentityClaims
 from app.security import set_oauth_cookie
-from tests.conftest import bootstrap, complete_login, make_test_settings, start_authorize
+from tests.conftest import (
+    bootstrap,
+    complete_login,
+    make_test_settings,
+    start_authorize,
+)
 
 
 def test_secure_oauth_cookie_uses_secure_prefix_with_narrow_path() -> None:
@@ -29,6 +34,7 @@ def test_secure_oauth_cookie_uses_secure_prefix_with_narrow_path() -> None:
     assert "Path=/api/v1/auth/linkedin" in cookie
     assert "Secure" in cookie
     assert "Domain=" not in cookie
+
 
 async def test_first_login_provisions_identity_profile_and_required_notices(client_app) -> None:
     client, app = client_app
