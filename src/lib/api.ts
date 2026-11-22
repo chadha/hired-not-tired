@@ -871,9 +871,9 @@ export const api = {
     BASE
       ? post<Candidate>(`/candidates/${cid}/documents/cv`, { filename, text })
       : local.uploadCv(cid, filename, text),
-  linkedin: (cid: string, linkedin_url: string, profile_data: Record<string, unknown>) =>
+  linkedin: (cid: string, linkedin_url: string, consent_confirmed = true) =>
     BASE
-      ? post<Candidate>(`/candidates/${cid}/profile/linkedin`, { linkedin_url, profile_data })
+      ? post<Candidate>(`/candidates/${cid}/profile/linkedin`, { linkedin_url, consent_confirmed })
       : local.patchProfile(cid, { linkedin_url }),
   patchProfile: (cid: string, patch: Partial<Candidate>) =>
     BASE
@@ -892,7 +892,7 @@ export const api = {
     BASE
       ? post<{ jobs: Job[] }>("/jobs/discover", {
           candidate_id: cid,
-          sources: ["candidate_submitted", "job_url_import"],
+          sources: ["linkedin_needle", "candidate_submitted", "job_url_import"],
           limit: 10,
         }).then((r) => r.jobs)
       : local.listJobs(),
