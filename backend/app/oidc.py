@@ -1,4 +1,3 @@
-import hmac
 import logging
 import time
 from typing import Any
@@ -11,7 +10,6 @@ from pydantic import ValidationError
 
 from app.config import Settings
 from app.schemas import LinkedInIdentityClaims
-from app.security import keyed_hash
 
 # Keep this identical to issuer in LinkedIn live OIDC discovery metadata.
 ISSUER = "https://www.linkedin.com/oauth"
@@ -32,7 +30,7 @@ class LinkedInOIDC:
         self._jwks: list[dict[str, Any]] = []
         self._jwks_fetched_at = 0.0
 
-    def authorization_url(self, state: str, nonce: str) -> str:
+    def authorization_url(self, state: str) -> str:
         query = urlencode(
             {
                 "response_type": "code",
@@ -40,7 +38,6 @@ class LinkedInOIDC:
                 "redirect_uri": self.settings.linkedin_redirect_uri,
                 "scope": "openid profile email",
                 "state": state,
-                "nonce": nonce,
             }
         )
         return f"{AUTHORIZATION_ENDPOINT}?{query}"
@@ -98,7 +95,7 @@ class LinkedInOIDC:
             return await self._fetch_jwks()
         return self._jwks
 
-    async def validate_id_token(self, id_token: str, expected_nonce: str) -> LinkedInIdentityClaims:
+    async def validate_id_token(self, id_token: str) -> LinkedInIdentityClaims:
         try:
             header = jwt.get_unverified_header(id_token)
             kid = header.get("kid")
@@ -128,15 +125,6 @@ class LinkedInOIDC:
         except (ValueError, TypeError) as exc:
             logger.warning("LinkedIn ID token decoding failed type=%s", type(exc).__name__)
             raise OIDCError("oauth_validation_failed") from None
-        nonce = payload.get("nonce")
-        if not isinstance(nonce, str):
-            logger.warning("LinkedIn ID token nonce was missing or not a string")
-            raise OIDCError("oauth_validation_failed")
-        if not hmac.compare_digest(
-            keyed_hash(nonce, self.settings), keyed_hash(expected_nonce, self.settings)
-        ):
-            logger.warning("LinkedIn ID token nonce did not match the authorization attempt")
-            raise OIDCError("oauth_validation_failed")
         try:
             return LinkedInIdentityClaims.model_validate(payload)
         except ValidationError:
