@@ -108,6 +108,7 @@ class LinkedInOIDC:
                 keys = await self._keys(refresh=True)
                 key_data = next((key for key in keys if key.get("kid") == kid), None)
             if key_data is None:
+                logger.warning("LinkedIn ID token signing key was not found in JWKS")
                 raise OIDCError("oauth_validation_failed")
             public_key = jwt.PyJWK(key_data).key
             payload = jwt.decode(
@@ -121,12 +122,20 @@ class LinkedInOIDC:
             )
         except OIDCError:
             raise
-        except (PyJWTError, ValueError, TypeError):
+        except PyJWTError as exc:
+            logger.warning("LinkedIn ID token claims/signature rejected category=%s", type(exc).__name__)
+            raise OIDCError("oauth_validation_failed") from None
+        except (ValueError, TypeError) as exc:
+            logger.warning("LinkedIn ID token decoding failed type=%s", type(exc).__name__)
             raise OIDCError("oauth_validation_failed") from None
         nonce = payload.get("nonce")
-        if not isinstance(nonce, str) or not hmac.compare_digest(
+        if not isinstance(nonce, str):
+            logger.warning("LinkedIn ID token nonce was missing or not a string")
+            raise OIDCError("oauth_validation_failed")
+        if not hmac.compare_digest(
             keyed_hash(nonce, self.settings), keyed_hash(expected_nonce, self.settings)
         ):
+            logger.warning("LinkedIn ID token nonce did not match the authorization attempt")
             raise OIDCError("oauth_validation_failed")
         try:
             return LinkedInIdentityClaims.model_validate(payload)
