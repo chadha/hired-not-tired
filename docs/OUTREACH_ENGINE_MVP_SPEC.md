@@ -325,3 +325,48 @@ Do not optimize for volume of messages.
 A candidate can select a real job, add a real contact with provenance, review why the contact may be relevant, generate and edit an evidence-grounded LinkedIn or email message, approve the exact text, complete a truthful LinkedIn handoff or (in a secured configured pilot) send a verified email through an authorized provider, and see accurate outreach events in the job timeline.
 
 The MVP must not depend on Needle and must never pretend that a handoff is a sent message.
+
+
+## 16. Product decision update: CV-led applications and three channels
+
+**Decision status: LOCKED by product owner, 22 November 2026.** This section updates product goal and delivery priority. The outreach domain remains independent of Needle and retains all security, provenance and channel constraints above.
+
+### Product direction
+
+Hired Not Tired is a CV-led job application platform. It helps candidates prepare a truthful, job-specific application and pursue the opportunity through:
+1. LinkedIn Easy Apply (candidate-guided handoff by default; direct submission only with an official authorized integration).
+2. Direct employer application through Hired Not Tired (only supported official/authorized application integrations; otherwise guided handoff to the employer's official form).
+3. Hiring-manager/recruiter outreach through LinkedIn manual handoff and email (email sending only through a secured, authorized provider).
+
+### CV requirements are P0
+- Both input paths are required: upload/import an existing CV or create a career profile conversationally.
+- Maintain a master CV/profile and immutable job-specific tailored versions.
+- Parse job descriptions into explicit requirements and application questions.
+- Match requirements to candidate-confirmed evidence; show gaps and uncertainty. No invented qualifications or achievements.
+- Generate editable, parser-readable ATS-friendly CVs, with PDF and DOCX exports.
+- Validate extracted text, headings, reading order, dates, links and formatting. Do not claim guaranteed ATS acceptance or rank.
+- Approval is version-specific. Editing the CV or changing its source profile after approval requires review and re-approval.
+
+### Application package
+
+A versioned package links candidate, selected job, job snapshot, profile version, match analysis, tailored CV artifact, optional cover letter, reviewed application answers, outreach contact/drafts, approvals, channel actions and an append-only timeline. Reuse the exact approved CV version as the email attachment. For LinkedIn, provide the artifact for the candidate to attach manually where supported.
+
+### Three-channel constraints
+- LinkedIn Easy Apply: identify Easy Apply status only from reliable source data. Prepare CV and answers. Default to candidate-controlled LinkedIn handoff. Direct submit only after formal authorization and a documented official integration. No scraping, unofficial APIs, browser automation or LinkedIn credential collection.
+- Direct employer application: submit only through an explicitly supported official API/integration with candidate approval and trustworthy confirmation. Otherwise open the employer's official form and guide the candidate; do not represent a handoff as a submission.
+- Hiring contact: evidence-based contact records; LinkedIn manual message handoff; email draft and optional real sending only after provider, recipient, sender, auth, persistence, suppression, idempotency and audit requirements pass. Attach the approved tailored CV to email. LinkedIn attachments remain manual candidate action.
+
+### Shared approval invariant
+
+Candidate approval binds the exact destination, message/answers and artifact version/hash. Any change invalidates approval. A handoff, browser tab opening or button click is not proof of submission or sending. Timeline events distinguish candidate attestation from provider-confirmed outcomes.
+
+### Delivery priority
+1. Inspect/reuse existing CV upload, candidate profile, job discovery and chat UX.
+2. Build structured career profile and CV/job parsers.
+3. Build requirement-level evidence matching.
+4. Build tailored CV editing, versioning, ATS validation, PDF and DOCX exports.
+5. Build the application package and question-answer review.
+6. Implement LinkedIn guided handoff, supported direct-application adapters and hiring-contact outreach behind clear capability gates.
+7. Harden authentication, persistence, security, privacy and observability before multi-user or real external actions.
+
+Do not enable all channels by faking integrations. Full product priority means designing and delivering all three supported paths with honest capability states, while each external action remains gated by authorization, candidate approval and trustworthy confirmation.
