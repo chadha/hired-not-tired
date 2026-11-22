@@ -248,3 +248,94 @@ Any message or recipient edit resets the draft to draft and clears approval fiel
 
 **Definition of done for this milestone:** the seven-step journey (select job → add contact → generate message → approve → LinkedIn handoff → confirm sent → record response) works end to end in the existing Hired Not Tired application, with truthful state labels and no unauthorized automation.
 
+
+
+## 10. Product strategy lock: CV-led, multi-channel job application platform
+
+**Decision status: LOCKED by product owner, 22 November 2026.** This section supersedes Section 9's LinkedIn-only first-delivery scope and any earlier P0 scope that conflicts with it. Preserve the existing chat-first experience and independent architecture.
+
+### Product promise
+
+Hired Not Tired helps a candidate turn a job opportunity into a high-quality, tailored application and a relevant professional conversation. The product owns the application package and workflow; channels are execution paths, not separate products.
+
+### Locked product decisions
+
+1. **Both CV creation methods:** candidates can upload/import an existing CV or build their CV from a structured conversational career profile.
+2. **Job-specific tailoring:** every selected job can produce a tailored CV grounded only in candidate-confirmed facts and evidence. Preserve the original master CV and create a separate version per job.
+3. **Both export formats:** PDF and DOCX are first-release requirements. DOCX remains editable; PDF preserves predictable layout. Validate extracted text and document structure.
+4. **All three application paths are strategic priorities:**
+   - LinkedIn Easy Apply: support candidate-guided handoff and direct submission only where an official, authorized integration exists. Default to candidate-controlled handoff. No scraping, logged-in browser automation, credential/cookie collection, unofficial endpoints, or universal automation claims.
+   - Direct application through Hired Not Tired: support employer submission only through an authorized API or explicitly supported integration. Otherwise prepare the package and guide the candidate to the employer's official application form. Never claim submission without verified success.
+   - Hiring-manager/recruiter outreach: support LinkedIn manual handoff and email. LinkedIn remains user-sent unless formally authorized capability becomes available. Email sending requires the secure provider gates in the MVP spec; otherwise provide copy/mailto handoff, not a fake send.
+5. **Evidence-led contact discovery:** manual/candidate-supplied information and permitted public/company sources only. Label unverified people “Potential hiring contact”. Never invent identities, email addresses, responsibilities or relationships.
+6. **Application package is the shared domain object:** bind one candidate + one job to a versioned package containing tailored CV, optional cover letter, job-match analysis, application-question answers, outreach drafts, channel actions, approvals, submission evidence and timeline.
+7. **Candidate approval is required** before any external submission or message send. The candidate reviews exact recipient, destination, content, CV attachment and answers. Approval is invalidated when approved content or attachment version changes.
+8. **No paid integrations, deployment, new cloud resources, or external messages** without explicit user approval.
+
+### Recommended delivery order
+
+This is the product priority, not permission to bypass safety gates.
+
+**Phase A: shared foundation**
+- Inspect and reuse existing candidate profile, CV upload, job discovery/matching, chat UI and FastAPI routes.
+- Establish canonical candidate career profile with source/provenance and candidate confirmation.
+- Establish job requirement model and versioned application package.
+- Preserve master CV; version all job-specific artifacts.
+- Keep current in-memory backend demo-only and visibly labeled.
+
+**Phase B: CV intelligence (core capability)**
+- Parse uploaded CVs (PDF/DOCX) and conversational profile data into a canonical structured profile.
+- Parse job descriptions into required/preferred qualifications, skills, experience, responsibilities and application questions.
+- Produce evidence-linked match analysis: requirement, match status, supporting candidate evidence, missing/uncertain evidence and recommended truthful action.
+- Generate job-specific ATS-friendly CV using a structured, parser-readable template; do not keyword-stuff or fabricate.
+- Provide editable sections, review/diff, PDF + DOCX export, and validation for text extraction, headings, reading order, dates, links and layout.
+- Explain that an internal match score is a heuristic, not a prediction of ATS ranking or acceptance.
+
+**Phase C: three application paths**
+- LinkedIn Easy Apply: identify/label Easy Apply opportunities only when source data provides reliable evidence. Prepare CV and answers; offer candidate-guided LinkedIn handoff. Direct application is enabled only through an official authorized integration and documented capability. Otherwise candidate completes submission on LinkedIn.
+- Direct employer application: support a provider/ATS adapter boundary. Start with explicitly supported employer systems or official APIs, selected after technical and terms review. For unsupported forms, launch the official employer application page and provide a ready package. Capture confirmation only from a trustworthy response or candidate attestation, clearly distinguished.
+- Hiring contact: contact/evidence capture, relevance explanation, LinkedIn message draft + manual handoff, and email draft + secure authorized send when configured. Attach the exact approved tailored CV version to email. For LinkedIn, show the CV as a ready artifact and explain that the candidate must attach it manually if LinkedIn's interface supports attachments. Never imply automatic attachment.
+
+**Phase D: application tracking and learning**
+- Unified timeline across preparation, approval, handoff, submission, outreach, replies and outcomes.
+- Distinguish provider-confirmed, source-confirmed, and candidate-reported events.
+- Learn from edits and outcomes only with transparent provenance and appropriate user controls.
+- Measure application quality and meaningful progression, not raw application/message volume.
+
+**Phase E: pilot hardening**
+- Before multi-user or external-send pilot: PostgreSQL/migrations, authentication, candidate ownership and tenant isolation, audit trail, secrets management, HTTPS, rate limits, suppression, idempotency, retention/deletion and privacy/legal review.
+- Validate supported integrations, vendor terms and regional requirements. No unsupported LinkedIn automation.
+- Run end-to-end tests for each channel and failure/reconciliation paths.
+
+### Core application package model (logical contract)
+
+- candidate_id, job_id, package id, lifecycle status and timestamps.
+- master profile version and source/provenance references.
+- job snapshot and parsed requirements version.
+- match analysis: requirement-level matches, evidence references, gaps, uncertainty and method/version.
+- CV artifact: immutable version, source profile version, template/version, PDF/DOCX file references, extracted-text validation results and candidate approval.
+- optional cover letter artifact.
+- application answers: question, candidate-confirmed answer, evidence/source and review state.
+- outreach: contact/evidence records and channel-specific drafts.
+- approval: actor, timestamp, destination, content hash and artifact hashes.
+- channel actions: channel, integration/provider, state, external reference and trustworthy confirmation evidence.
+- append-only timeline events with provenance and actor.
+
+Do not store file bytes or provider secrets in arbitrary JSON metadata. Use existing storage conventions for local/demo; design durable object storage only as part of an approved infrastructure decision.
+
+### Revised success criteria
+
+- Candidate can upload an existing CV OR build a profile conversationally.
+- Candidate can select/paste a job and inspect requirement-level match evidence.
+- Candidate can generate, edit, approve and export a job-specific ATS-friendly CV in PDF and DOCX without altering the master CV.
+- Candidate can prepare an application package with supported questions/answers.
+- Candidate can choose LinkedIn Easy Apply handoff, supported direct employer application, or hiring-contact outreach.
+- Direct submissions and email sends are enabled only through authorized integrations with authentication, approval, idempotency and auditable provider confirmation.
+- LinkedIn actions remain user-controlled unless formally authorized capability is established.
+- Timeline accurately distinguishes prepared, approved, handed-off, submitted, candidate-reported and provider-confirmed states.
+- UI remains a single continuous conversation with contextual cards, not a disconnected wizard.
+- No fake success, fabricated contact, invented CV fact, or unsupported ATS-pass guarantee.
+
+### Immediate implementation checkpoint
+
+Inspect the current repository and Lovable implementation to identify existing CV/profile/job capabilities and reuse them. Produce a gap matrix mapping each locked requirement to existing code, missing backend contract, UI surface and test. Then implement the smallest end-to-end slice that proves the application package: selected job → candidate CV/profile → job analysis → tailored CV → review/approve → export. In parallel, define channel adapters and contracts, but do not fake or prematurely enable direct submission. The first demonstrable experience should make CV tailoring excellent while keeping all three application paths visible in the product architecture.
