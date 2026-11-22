@@ -1,4 +1,5 @@
 import hmac
+import logging
 import time
 from typing import Any
 from urllib.parse import urlencode
@@ -17,6 +18,8 @@ ISSUER = "https://www.linkedin.com/oauth"
 AUTHORIZATION_ENDPOINT = "https://www.linkedin.com/oauth/v2/authorization"
 TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken"  # noqa: S105
 JWKS_URI = "https://www.linkedin.com/oauth/openid/jwks"
+
+logger = logging.getLogger(__name__)
 
 
 class OIDCError(Exception):
@@ -58,10 +61,15 @@ class LinkedInOIDC:
                 )
                 response.raise_for_status()
                 payload = response.json()
-        except (httpx.HTTPError, ValueError):
+        except httpx.HTTPStatusError as exc:
+            logger.warning("LinkedIn token exchange rejected status=%s", exc.response.status_code)
+            raise OIDCError("oauth_validation_failed") from None
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("LinkedIn token exchange transport failure type=%s", type(exc).__name__)
             raise OIDCError("oauth_validation_failed") from None
         id_token = payload.get("id_token") if isinstance(payload, dict) else None
         if not isinstance(id_token, str) or not id_token:
+            logger.warning("LinkedIn token response did not contain an ID token")
             raise OIDCError("oauth_validation_failed")
         return id_token
 
@@ -71,10 +79,15 @@ class LinkedInOIDC:
                 response = await client.get(JWKS_URI, headers={"Accept": "application/json"})
                 response.raise_for_status()
                 payload = response.json()
-        except (httpx.HTTPError, ValueError):
+        except httpx.HTTPStatusError as exc:
+            logger.warning("LinkedIn JWKS request rejected status=%s", exc.response.status_code)
+            raise OIDCError("oauth_validation_failed") from None
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("LinkedIn JWKS request failed type=%s", type(exc).__name__)
             raise OIDCError("oauth_validation_failed") from None
         keys = payload.get("keys") if isinstance(payload, dict) else None
         if not isinstance(keys, list):
+            logger.warning("LinkedIn JWKS response did not contain a keys list")
             raise OIDCError("oauth_validation_failed")
         self._jwks = [key for key in keys if isinstance(key, dict)]
         self._jwks_fetched_at = time.monotonic()
