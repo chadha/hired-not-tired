@@ -169,7 +169,7 @@ export type CoachReply = {
   insights: string[];
   recommended_actions: RecommendedAction[];
   workflow_id: string;
-  coach_mode: "demo" | "bedrock";
+  coach_mode: "demo" | "bedrock" | "claude";
 };
 export type OnboardInput = {
   full_name: string;
