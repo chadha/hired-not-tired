@@ -12,6 +12,19 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   // Pre-bundle UI deps so a first visit doesn't trigger a mid-session re-optimize (duplicate React copies).
   vite: {
+    server: {
+      proxy: {
+        "/local-api": {
+          target: "http://127.0.0.1:8019",
+          changeOrigin: false,
+          bypass(req) {
+            if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "")) {
+              return false;
+            }
+          },
+        },
+      },
+    },
     optimizeDeps: {
       include: ["@radix-ui/react-slot", "@radix-ui/react-label", "lucide-react", "framer-motion"],
     },

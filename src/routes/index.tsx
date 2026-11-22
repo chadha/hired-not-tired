@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Compass, FileCheck2, MessageCircleHeart } from "lucide-react";
+import { ArrowRight, Compass, FileCheck2, MessageCircleHeart } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { Logo, EngineBadge } from "@/components/hnt/brand";
 import { ErrorNote } from "@/components/hnt/cards";
@@ -11,6 +11,7 @@ import {
   LINKEDIN_AUTH_CONTRACT,
   type LinkedInAuthCapability,
 } from "@/lib/linkedin-auth";
+import { isLocalWorkspace } from "@/lib/local-workspace";
 import { session } from "@/lib/session";
 
 export const Route = createFileRoute("/")({
@@ -72,6 +73,26 @@ const benefits = [
     icon: FileCheck2,
     title: "Your next move",
     description: "Tailor a truthful CV and choose each application handoff in one conversation.",
+  },
+];
+
+const workspaceBenefits = [
+  {
+    icon: Compass,
+    title: "Explore your market",
+    description: "Search your job inventory by role, city or posting date.",
+  },
+  {
+    icon: MessageCircleHeart,
+    title: "Find your fit",
+    description:
+      "Upload your CV and compare your experience with the requirements in each posting.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Write your cover letter",
+    description:
+      "Work on a draft with your coach, then follow the application link when you’re ready.",
   },
 ];
 
@@ -187,7 +208,7 @@ function Index() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6">
         <Logo />
         <div className="flex items-center gap-3">
-          <EngineBadge />
+          {!isLocalWorkspace && <EngineBadge />}
           <Link
             to="/pricing"
             className="text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -215,15 +236,24 @@ function Index() {
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Discover your strengths. Find opportunities that fit. Apply with confidence.
           </p>
-          <LinkedInSignInActions
-            capability={capability}
-            checking={checking}
-            authBusy={authBusy}
-            demoBusy={demoBusy}
-            allowDemo={!isLiveApi}
-            onLinkedIn={linkedIn}
-            onDemo={demo}
-          />
+          {isLocalWorkspace ? (
+            <Link
+              to="/coach"
+              className="mt-8 inline-flex min-h-12 items-center gap-3 rounded-xl bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Open your career coach <ArrowRight size={18} aria-hidden="true" />
+            </Link>
+          ) : (
+            <LinkedInSignInActions
+              capability={capability}
+              checking={checking}
+              authBusy={authBusy}
+              demoBusy={demoBusy}
+              allowDemo={!isLiveApi}
+              onLinkedIn={linkedIn}
+              onDemo={demo}
+            />
+          )}
           {notice && (
             <p role="status" className="mt-6 max-w-xl rounded-xl border bg-background p-4 text-sm">
               {notice}
@@ -234,11 +264,13 @@ function Index() {
               <ErrorNote message={err} />
             </div>
           )}
-          <p className="mt-6 max-w-xl text-xs leading-relaxed text-muted-foreground">
-            Real sign-in uses only LinkedIn OpenID Connect identity claims. It does not import
-            employment history, skills or connections. Optional career information is added later
-            with your confirmation.
-          </p>
+          {!isLocalWorkspace && (
+            <p className="mt-6 max-w-xl text-xs leading-relaxed text-muted-foreground">
+              Real sign-in uses only LinkedIn OpenID Connect identity claims. It does not import
+              employment history, skills or connections. Optional career information is added later
+              with your confirmation.
+            </p>
+          )}
         </motion.div>
         <motion.section
           aria-label="What you can do"
@@ -248,7 +280,7 @@ function Index() {
           {...(reduceMotion ? {} : { whileInView: "visible" })}
           viewport={{ once: true, amount: 0.2 }}
         >
-          {benefits.map((benefit) => (
+          {(isLocalWorkspace ? workspaceBenefits : benefits).map((benefit) => (
             <motion.div
               key={benefit.title}
               variants={featureCardVariants}
