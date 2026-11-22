@@ -207,33 +207,77 @@ async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
       : {}),
     ...suppliedHeaders,
   };
+  const url = `${BASE}/api/v1${path}`;
   try {
-    res = await fetch(`${BASE}/api/v1${path}`, {
+    res = await fetch(url, {
       ...init,
       credentials: "include",
       headers,
     });
-  } catch {
+  } catch (error) {
+    const diagnostic = networkDiagnostic(method, url, error);
+    console.error("[career-engine] request failed before a readable response", diagnostic);
     throw new ApiError(
-      "We couldn't reach the career engine. Check your connection and try again. No local demo success was substituted.",
+      `We couldn't reach the career engine. Check your connection and try again. No local demo success was substituted. Diagnostic: ${formatNetworkDiagnostic(diagnostic)}`,
     );
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as {
       detail?: unknown;
-      error?: { message?: unknown };
+      error?: { message?: unknown; request_id?: unknown };
     };
-    throw new ApiError(
+    const requestId =
+      typeof body.error?.request_id === "string"
+        ? body.error.request_id
+        : res.headers.get("X-Request-ID");
+    const message =
       typeof body.error?.message === "string"
         ? body.error.message
         : typeof body.detail === "string"
           ? body.detail
-          : `The engine returned an error (${res.status}). Please retry.`,
+          : `The engine returned an error (${res.status}). Please retry.`;
+    throw new ApiError(
+      res.status >= 500 && requestId ? `${message} (Reference: ${requestId})` : message,
       res.status,
     );
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+export type NetworkDiagnostic = {
+  method: string;
+  url: string;
+  origin: string | null;
+  error_name: string;
+  error_message: string;
+  hint: string;
+};
+
+/**
+ * Safe, non-secret description of a fetch that failed before a readable response.
+ * Contains no headers, cookies, CSRF tokens, request bodies or query strings.
+ */
+export function networkDiagnostic(method: string, url: string, error: unknown): NetworkDiagnostic {
+  const origin = typeof window === "undefined" ? null : window.location.origin;
+  const safeUrl = url.split(/[?#]/, 1)[0] ?? url;
+  const name = error instanceof Error ? error.name : typeof error;
+  const message = (error instanceof Error ? error.message : String(error)).slice(0, 200);
+  let hint =
+    "The browser blocked or lost the response. Common causes: the server returned an error without CORS headers, this site origin is not allowed by the API, a proxy timeout, or no network.";
+  if (origin?.startsWith("https:") && safeUrl.startsWith("http:")) {
+    hint = "The API URL uses http on an https page, so the browser blocks it as mixed content.";
+  } else if (!/^https?:\/\//.test(safeUrl)) {
+    hint =
+      "The API base URL is not an absolute http(s) URL; check the frontend build configuration.";
+  } else if (name === "AbortError") {
+    hint = "The request was cancelled before the API answered.";
+  }
+  return { method, url: safeUrl, origin, error_name: name, error_message: message, hint };
+}
+
+function formatNetworkDiagnostic(d: NetworkDiagnostic): string {
+  return `${d.method} ${d.url} from ${d.origin ?? "unknown origin"} failed (${d.error_name}: ${d.error_message}). ${d.hint}`;
 }
 
 let authCsrfToken: string | null = null;

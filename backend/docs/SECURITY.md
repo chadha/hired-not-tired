@@ -16,7 +16,7 @@ FastAPI retrieves the authenticated user from Supabase `/auth/v1/user`, maps the
 
 ## Sessions and CSRF
 
-Session values come from `secrets.token_urlsafe(32)`. PostgreSQL stores `HMAC-SHA256(AUTH_HASH_PEPPER, token)`, never the bearer value. The session cookie is HttpOnly, `Path=/`, `SameSite=Lax`, seven-day Max-Age, and Secure in production. Production names use the `__Host-` prefix; no Domain attribute is set.
+Session values come from `secrets.token_urlsafe(32)`. PostgreSQL stores `HMAC-SHA256(AUTH_HASH_PEPPER, token)`, never the bearer value. The session cookie is HttpOnly, `Path=/`, `SameSite=Lax`, seven-day Max-Age, and Secure in production. Its production name uses the `__Host-` prefix and no Domain attribute. The callback-scoped OAuth cookie instead uses `__Secure-hnt_oauth`: `__Host-` cookies require `Path=/`, while this cookie deliberately keeps `Path=/api/v1/auth/linkedin`. It remains Secure, HttpOnly, SameSite=Lax and host-only.
 
 The CSRF token is a separate random value stored as a keyed hash. `GET /auth/session` rotates it and returns it once in JSON. The frontend holds it in a module variable, never localStorage/sessionStorage. `POST /auth/logout`, `PUT /account/consents` and `DELETE /account` require both the token header and exact Origin allowlist match. This protects cookie-authenticated mutations even if a browser sends cookies automatically.
 
@@ -79,3 +79,7 @@ A random pending checkout belongs to the authenticated user and stores the serve
 Webhooks have no user session, but every event must pass PayPal's server-side signature verification API using the configured webhook ID and original transmission headers. Event IDs are unique. Stored subscription state is refreshed from PayPal before entitlement changes; unknown subscriptions are ignored. Payment records verify EUR and the stored plan amount, and refunds/reversals update existing transactions without inventing provider-confirmed entitlement.
 
 Cancellation preserves access only when a stored PayPal-confirmed paid-through date remains in the future. Suspension, expiration and unverified/inactive states grant no access. No local/demo fallback can create paid status.
+
+## Error responses and CORS
+
+Unhandled exceptions are converted to the standard `internal_error` envelope inside the request-context middleware, and `CORSMiddleware` is registered last so it wraps every application response. Without this, Starlette's outermost server-error handler returned 500s without `Access-Control-Allow-Origin`, and browsers reported an opaque network failure instead of a readable error with a `request_id`. Server logs record request ID, method, path and exception type only.
