@@ -28,14 +28,18 @@ class NeedleClient:
 
     def require_configured(self) -> None:
         if not self.configured:
-            raise NeedleError("Needle is not configured. Set NEEDLE_API_KEY and NEEDLE_CONNECTED_ACCOUNT_ID on the production backend.")
+            raise NeedleError(
+                "Needle is not configured. Set NEEDLE_API_KEY and NEEDLE_CONNECTED_ACCOUNT_ID on the production backend."
+            )
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         self.require_configured()
         headers = {"Authorization": f"Bearer {self.api_key}", "Accept": "application/json"}
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.request(method, f"{self.base_url}{path}", headers=headers, **kwargs)
+                response = await client.request(
+                    method, f"{self.base_url}{path}", headers=headers, **kwargs
+                )
             if response.status_code == 429:
                 raise NeedleError("Needle usage limit reached. Please try again later.")
             response.raise_for_status()
@@ -46,13 +50,17 @@ class NeedleClient:
         except NeedleError:
             raise
         except (httpx.HTTPError, ValueError) as exc:
-            raise NeedleError("Needle is temporarily unavailable. No external data was imported.") from exc
+            raise NeedleError(
+                "Needle is temporarily unavailable. No external data was imported."
+            ) from exc
 
     async def get_profile(self, identity: str) -> dict[str, Any]:
         path = f"/linkedin/profiles/{quote(identity, safe='')}?connectedAccountId={quote(self.connected_account_id or '', safe='')}"
         return await self._request("GET", path)
 
-    async def search_jobs(self, *, keywords: str, limit: int, workplace: list[str] | None = None) -> dict[str, Any]:
+    async def search_jobs(
+        self, *, keywords: str, limit: int, workplace: list[str] | None = None
+    ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "connectedAccountId": self.connected_account_id,
             "keywords": keywords,
