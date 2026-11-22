@@ -638,3 +638,19 @@ Candidate data, source provenance, permissions, and external actions are first-c
 The coach experience should reduce cognitive load, explain recommendations, celebrate real progress, and let the candidate stay in control.
 
 **The product promise:** Don't just find another job listing. Build momentum toward the right next opportunity.
+
+
+## Critical product requirement: hiring-contact discovery and in-app outreach
+
+The candidate should not have to leave Hired Not Tired to research who is responsible for a vacancy, then copy a message into another app. Every opportunity should include a **Find hiring manager** workflow that identifies plausible hiring contacts, shows evidence and confidence, and lets the candidate review a personalized message in the same continuous experience.
+
+The product must distinguish three separate capabilities:
+1. **Contact discovery:** identify a likely hiring manager, team lead, department head, or recruiter from permitted sources. Show provenance, role, relevance, confidence, and last-checked time. Never fabricate a contact or imply that a person owns a vacancy without evidence.
+2. **Message preparation and approval:** draft and edit outreach in-app, retain the candidate's approval record, and maintain a job-specific communication timeline.
+3. **External sending:** send from Hired Not Tired only through a genuinely authorized provider integration that supports the channel and message type. Require explicit candidate approval and record the provider's result. Opening a LinkedIn profile is not sending a message.
+
+**LinkedIn constraint:** standard LinkedIn sign-in does not imply permission to send personal member-to-member messages. LinkedIn API access is permission-scoped; unauthorized scraping, bots, and automated message activity are prohibited. An approved LinkedIn Pages messaging partner integration is not the same as personal-account messaging access. Keep personal LinkedIn sending disabled unless Hired Not Tired obtains written approval and a supported integration. Never use credentials, session cookies, browser automation, or unofficial APIs. Do not silently substitute copy/paste and claim the requirement is fulfilled.
+
+The provider adapter should expose real capability/permission status. When no authorized sender is available, show the blocker honestly while keeping discovery, verification, message drafting, approval, and tracking in the app. Support other channels only through authorized integrations and candidate approval. Demo contacts and send events must be clearly labeled DEMO ONLY.
+
+See [the Lovable handoff](docs/LOVABLE_HANDOFF.md#critical-product-requirement-in-app-hiring-contact-discovery-and-outreach) for UI states, acceptance criteria, and API contract direction.
