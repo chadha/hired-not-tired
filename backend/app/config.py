@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # Optional compliant public web-search provider. Never used for LinkedIn scraping or messaging.
     search_provider: Literal["brave"] = "brave"
     search_api_key: str | None = None
+    needle_api_key: str | None = None
+    needle_connected_account_id: str | None = None
     search_api_url: str = "https://api.search.brave.com/res/v1/web/search"
     outbound_timeout_seconds: float = Field(default=10.0, ge=2.0, le=30.0)
     outbound_max_bytes: int = Field(default=1_500_000, ge=10_000, le=5_000_000)
@@ -69,6 +71,8 @@ class Settings(BaseSettings):
         "supabase_url",
         "supabase_publishable_key",
         "search_api_key",
+        "needle_api_key",
+        "needle_connected_account_id",
         "paypal_client_id",
         "paypal_client_secret",
         "paypal_webhook_id",
@@ -169,6 +173,10 @@ class Settings(BaseSettings):
     @property
     def search_configured(self) -> bool:
         return bool(self.search_api_key and self.search_api_url)
+
+    @property
+    def needle_configured(self) -> bool:
+        return bool(self.needle_api_key and self.needle_connected_account_id)
 
     @property
     def paypal_configured(self) -> bool:
