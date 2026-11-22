@@ -46,6 +46,9 @@ async def test_first_login_provisions_identity_profile_and_required_notices(clie
     assert query["scope"] == ["openid profile email"]
     assert query["redirect_uri"] == ["http://localhost:8000/api/v1/auth/linkedin/callback"]
     assert query["state"] == [state]
+    # LinkedIn does not include a nonce claim in its documented ID-token profile.
+    # The one-time state and signed attempt cookie bind the browser callback instead.
+    assert "nonce" not in query
     assert "client_secret" not in query
     oauth_cookie = authorize.headers["set-cookie"]
     assert "HttpOnly" in oauth_cookie
