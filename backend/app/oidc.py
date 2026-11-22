@@ -12,7 +12,8 @@ from app.config import Settings
 from app.schemas import LinkedInIdentityClaims
 from app.security import keyed_hash
 
-ISSUER = "https://www.linkedin.com"
+# Keep this identical to issuer in LinkedIn live OIDC discovery metadata.
+ISSUER = "https://www.linkedin.com/oauth"
 AUTHORIZATION_ENDPOINT = "https://www.linkedin.com/oauth/v2/authorization"
 TOKEN_ENDPOINT = "https://www.linkedin.com/oauth/v2/accessToken"  # noqa: S105
 JWKS_URI = "https://www.linkedin.com/oauth/openid/jwks"
