@@ -437,7 +437,7 @@ class CoachReply(BaseModel):
     insights: list[str]
     recommended_actions: list[dict[str, Any]]
     workflow_id: str
-    coach_mode: Literal["deterministic"] = "deterministic"
+    coach_mode: Literal["claude", "deterministic"] = "deterministic"
 
 
 class ActionPlan(BaseModel):
