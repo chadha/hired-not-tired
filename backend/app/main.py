@@ -9,6 +9,7 @@ from app.billing import PayPalClient
 from app.config import Settings
 from app.database import make_engine, make_session_factory
 from app.errors import error_response, install_exception_handlers
+from app.needle import NeedleClient
 from app.oidc import LinkedInOIDC
 from app.providers import BraveSearchProvider, JobPageImporter
 from app.routers import account, auth, billing, career, health
@@ -34,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.supabase = SupabaseLinkedInOIDC(configuration)
     app.state.search_provider = BraveSearchProvider(configuration)
     app.state.job_importer = JobPageImporter(configuration)
+    app.state.needle = NeedleClient(configuration)
     app.state.paypal = PayPalClient(configuration)
 
     @app.middleware("http")

@@ -34,7 +34,7 @@ async function extractPdfText(buffer: ArrayBuffer): Promise<{ text: string; page
   const pageCount = document.numPages;
   if (pageCount > 30) {
     await loadingTask.destroy();
-    throw new Error("PDFs are limited to 30 pages in this local demo.");
+    throw new Error("PDFs are limited to 30 pages for this upload.");
   }
   const pages: string[] = [];
   for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -67,7 +67,7 @@ async function extractDocxText(buffer: ArrayBuffer): Promise<string> {
 export async function extractCareerDocument(file: File): Promise<CareerDocumentInput> {
   if (!file.size) throw new Error("Choose a non-empty CV file.");
   if (file.size > MAX_FILE_BYTES)
-    throw new Error("CV files are limited to 5 MB in this local demo.");
+    throw new Error("CV files are limited to 5 MB for this upload.");
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (!extension || !["txt", "md", "pdf", "docx"].includes(extension)) {
     throw new Error("Choose a PDF, DOCX, TXT or MD file. Legacy DOC files are not supported.");

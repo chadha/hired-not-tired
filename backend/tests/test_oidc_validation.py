@@ -66,6 +66,4 @@ async def test_id_token_rejects_invalid_signature_audience_issuer_and_expiry() -
         await provider.validate_id_token(signed_token(private_key, iss="https://evil.test"))
     expired = datetime.now(UTC) - timedelta(minutes=10)
     with pytest.raises(OIDCError):
-        await provider.validate_id_token(
-            signed_token(private_key, iat=expired, exp=expired)
-        )
+        await provider.validate_id_token(signed_token(private_key, iat=expired, exp=expired))

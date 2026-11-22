@@ -22,10 +22,7 @@ def _oauth_signature(attempt_id: UUID, attempt_secret: str, settings: Settings) 
 
 
 def make_oauth_cookie(attempt_id: UUID, attempt_secret: str, settings: Settings) -> str:
-    return (
-        f"{attempt_id}.{attempt_secret}."
-        f"{_oauth_signature(attempt_id, attempt_secret, settings)}"
-    )
+    return f"{attempt_id}.{attempt_secret}.{_oauth_signature(attempt_id, attempt_secret, settings)}"
 
 
 def read_oauth_cookie(value: str | None, settings: Settings) -> tuple[UUID, str] | None:

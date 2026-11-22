@@ -95,9 +95,7 @@ async def authorize(
         else provider_for(request).authorization_url(state)
     )
     response = RedirectResponse(authorization_url, status_code=302)
-    set_oauth_cookie(
-        response, make_oauth_cookie(attempt.id, attempt_secret, settings), settings
-    )
+    set_oauth_cookie(response, make_oauth_cookie(attempt.id, attempt_secret, settings), settings)
     return response
 
 
@@ -172,7 +170,10 @@ async def linkedin_callback(
     if settings.supabase_mode:
         cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
         if cookie is None:
-            logger.warning("LinkedIn callback rejected request_id=%s stage=oauth_cookie_missing", request.state.request_id)
+            logger.warning(
+                "LinkedIn callback rejected request_id=%s stage=oauth_cookie_missing",
+                request.state.request_id,
+            )
             return callback_failure("invalid_state", settings)
         _, code_verifier = cookie
         try:
