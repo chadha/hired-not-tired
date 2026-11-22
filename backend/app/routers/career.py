@@ -572,6 +572,7 @@ async def import_job(
 @router.post("/jobs/discover", response_model=JobsResponse)
 async def discover_jobs(
     payload: JobDiscoverInput,
+    request: Request,
     auth: AuthContext = Depends(get_current_auth),
     db: AsyncSession = Depends(get_db),
 ) -> JobsResponse:
