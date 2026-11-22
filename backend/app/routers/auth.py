@@ -80,18 +80,24 @@ async def authorize(
     settings = settings_for(request)
     require_linkedin(settings)
     state = random_token()
-    nonce = random_token()
+    attempt_secret = random_token()
     attempt = OAuthAttempt(
         state_hash=keyed_hash(state, settings),
-        nonce_hash=keyed_hash(nonce, settings),
+        nonce_hash=keyed_hash(attempt_secret, settings),
         redirect_uri=settings.linkedin_redirect_uri,
         expires_at=utcnow() + timedelta(minutes=settings.oauth_attempt_ttl_minutes),
     )
     db.add(attempt)
     await db.flush()
-    provider = supabase_for(request) if settings.supabase_mode else provider_for(request)
-    response = RedirectResponse(provider.authorization_url(state, nonce), status_code=302)
-    set_oauth_cookie(response, make_oauth_cookie(attempt.id, nonce, settings), settings)
+    authorization_url = (
+        supabase_for(request).authorization_url(state, attempt_secret)
+        if settings.supabase_mode
+        else provider_for(request).authorization_url(state)
+    )
+    response = RedirectResponse(authorization_url, status_code=302)
+    set_oauth_cookie(
+        response, make_oauth_cookie(attempt.id, attempt_secret, settings), settings
+    )
     return response
 
 
@@ -170,8 +176,13 @@ async def linkedin_callback(
     _, nonce = cookie
 
     if settings.supabase_mode:
+        cookie = read_oauth_cookie(request.cookies.get(settings.oauth_cookie_name), settings)
+        if cookie is None:
+            logger.warning("LinkedIn callback rejected request_id=%s stage=oauth_cookie_missing", request.state.request_id)
+            return callback_failure("invalid_state", settings)
+        _, code_verifier = cookie
         try:
-            claims = await supabase_for(request).exchange_code(code, nonce)
+            claims = await supabase_for(request).exchange_code(code, code_verifier)
         except OIDCError:
             logger.warning("LinkedIn callback rejected request_id=%s stage=supabase_code_exchange", request.state.request_id)
             return callback_failure("oauth_validation_failed", settings)
@@ -183,7 +194,7 @@ async def linkedin_callback(
             logger.warning("LinkedIn callback rejected request_id=%s stage=token_exchange", request.state.request_id)
             return callback_failure("oauth_validation_failed", settings)
         try:
-            claims = await provider.validate_id_token(id_token, nonce)
+            claims = await provider.validate_id_token(id_token)
         except OIDCError:
             logger.warning("LinkedIn callback rejected request_id=%s stage=id_token_validation", request.state.request_id)
             return callback_failure("oauth_validation_failed", settings)
